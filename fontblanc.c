@@ -7,6 +7,8 @@
 #include "Dependencies/csparse.h"
 #include "Dependencies/st_io.h"
 
+#define ENCRYPT_TAG "safe_"
+#define ENCRYPT_EXT ".fbc"
 int size = 2;
 struct node *i_head, *j_head;
 
@@ -23,6 +25,17 @@ struct cipher create_cipher(char *file_path, char *file_name, char *encrypt_key,
             .encrypt_key=encrypt_key, .encrypt_key_val=encrypt_key_val, .bytes_remainging=bytes_remaining};
     return c;
 }
+
+int encrypt(struct cipher *c) {
+    char absolute_path[256];
+    sprintf(absolute_path, "%s%s%s%s", c->file_path, ENCRYPT_TAG, c->file_name, ENCRYPT_EXT);
+    return 1;
+}
+
+int decrypt(struct cipher *c) {
+    return 1;
+}
+
 
 /*
  * Delete a cipher structure
@@ -88,6 +101,7 @@ cs *gen_permut_mat(struct cipher *c, int dimension, boolean inverse) {
         num_matrices = (((2*dimension) - ((2*dimension)%16))/16) + 1;
     }
     char *linked = (char *)malloc(sizeof(char)*(16*dimension));
+    memset(linked, '\0', strlen(linked));
     //create string used to choose permutation matrix
     for(int i = 0; i < num_matrices; i++) {
         int logBase = i + dimension;
@@ -113,23 +127,33 @@ cs *gen_permut_mat(struct cipher *c, int dimension, boolean inverse) {
     int jst[dimension];
     int dimension_counter = 0;
     for(int k = 0; k < 2*dimension; k+=2) {
-        int row = charAt(linked, k) - '0';
-        row = row % list_len;
-        int i_val = pull_node(true, row);
-        ist[dimension_counter] = i_val;
-        int column = charAt(linked, k+1) - '0';
-        column = column % list_len;
-        int j_val = pull_node(false, column);
-        jst[dimension_counter] = j_val;
         ast[dimension_counter] = 1.0;
-        dimension_counter++;
-        list_len--;
+        if(list_len == 1) {
+            ist[dimension_counter] = i_head->number;
+            jst[dimension_counter] = j_head->number;
+        } else {
+            int row = charAt(linked, k) - '0';
+            row = row % list_len;
+            printf("row: %d\n", row);
+            int i_val = pull_node(true, row);
+            ist[dimension_counter] = i_val;
+            int column = charAt(linked, k+1) - '0';
+            column = column % list_len;
+            printf("column: %d\n", column);
+            int j_val = pull_node(false, column);
+            jst[dimension_counter] = j_val;
+            dimension_counter++;
+            list_len--;
+        }
     }
     free(linked);
     //put permutation matrix in cipher dictionary
+    remove("stdio_temp.st");
     r8st_write("stdio_temp.st", dimension, dimension, dimension, ist, jst, ast);
     FILE *f_mat = fopen("stdio_temp.st", "r");
     cs *load_triplet = cs_load(f_mat);
+    fclose(f_mat);
+    remove("stdio_temp.st");
     cs *permut_matrix = cs_triplet(load_triplet);
     return inverse ? cs_transpose(permut_matrix, dimension) : permut_matrix;
 }
@@ -175,14 +199,17 @@ int pull_node(boolean row, int count) {
     int num = cur->number;
     if(cur->last == NULL && cur->next != NULL) { //first node in list
         if(row) {
-            i_head = cur->next;
+            i_head = i_head->next;
+            i_head->last = NULL;
         } else {
-            j_head = cur->next;
+            j_head = j_head->next;
+            j_head->last = NULL;
         }
     } else if(cur->next == NULL && cur->last != NULL) { //last node in list
         cur->last->next = NULL;
     } else { //middle node in list
         cur->last->next = cur->next;
+        cur->next->last = cur->last;
     }
     //todo free node
     //free(cur);
@@ -204,9 +231,9 @@ int pull_node(boolean row, int count) {
  * Performs the linear transformation operation on the byte vector and returns the resulting vector
  */
 cs *transform_vec(int dimension, char bytes[], cs *permutation_mat) {
-    int ist[dimension];
-    int jst[dimension];
-    double ast[dimension];
+    int *ist = (int *)malloc(sizeof(int)*dimension);
+    int *jst = (int *)malloc(sizeof(int)*dimension);
+    double *ast = (double *)malloc(sizeof(double)*dimension);
     for(int i = 0; i < dimension; i++) {
         ist[i] = i;
         jst[i] = 0;
@@ -215,14 +242,20 @@ cs *transform_vec(int dimension, char bytes[], cs *permutation_mat) {
     r8st_write("stdio_vec_temp.st", dimension, dimension, dimension, ist, jst, ast);
     FILE *f_in = fopen("stdio_vec_temp.st", "r");
     cs *load_triplet = cs_load(f_in);
+    fclose(f_in);
+    remove("stdio_vec_temp.st");
     cs *data_vec = cs_triplet(load_triplet);
     cs *result = cs_multiply(permutation_mat, data_vec);
+    cs_print(result, 0);
     double *ptr = result->x;
     while(*ptr != '\0') {
         printf("%lf\n", *ptr);
         ptr++;
     }
     printf("-----------\n");
+    free(ist);
+    free(jst);
+    free(ast);
     return result;
 }
 
@@ -246,23 +279,30 @@ void distributor(struct cipher *c, FILE *in, FILE *out, int coeff) {
 
 void permut_cipher(struct cipher *c, FILE *in, FILE *out, int dimension) {
     cs *pm = lookup(c, dimension);
-    cs *permutation_mat = pm ? pm : gen_permut_mat(c, dimension, dimension < 0);
+    boolean inverse = dimension < 0;
     dimension = abs(dimension);
+    cs *permutation_mat = pm ? pm : gen_permut_mat(c, dimension, inverse);
     char *data_in = (char *)malloc(sizeof(char)*dimension);
     fread(data_in, 1, (size_t)dimension, in);
     cs *result = transform_vec(dimension, data_in, permutation_mat);
     //parse result, done w/ coefficient value
-    unsigned char *encrypted = (unsigned char *) malloc(sizeof(unsigned char) * dimension);
-    double *byte_ptr = result->x;
+    unsigned char *byte_data = (unsigned char *) malloc(sizeof(unsigned char) * dimension);
+    memset(byte_data, '\0', sizeof(char)*dimension);
+    int *byte_ptr = result->i;
     //optimize double --> int --> unsigned char
     for(int i = 0; i < dimension; i++) {
-        unsigned char cur_val = (unsigned char)((int)round(*byte_ptr));
-        encrypted[i] = cur_val;
+        int val_indx = *byte_ptr;
+        //printf("%d\n", val_indx);
+        byte_data[val_indx] = (unsigned char)*(result->x+i);
+        printf("%d\n", byte_data[val_indx]);
         byte_ptr++;
     }
-    fwrite(encrypted, 1, (size_t)dimension, out);
+    for(int j = 0; j < dimension; j++) {
+        printf("%d\n", byte_data[j]);
+    }
+    fwrite(byte_data, 1, (size_t)dimension, out);
     free(data_in);
-    free(encrypted);
+    free(byte_data);
     c->bytes_remainging -= dimension;
 }
 
