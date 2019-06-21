@@ -28,12 +28,12 @@ struct node {
 int char_sum(char *s);
 char *rem_file_f_path(char *file_path, char *file_name);
 struct cipher create_cipher(char *cwd, char *file_name, char *encrypt_key, long file_length);
-char *gen_log_base_str(struct cipher *c, int log_base);
+char *gen_log_base_str(struct cipher *c, double log_base);
 cs *gen_permut_mat(struct cipher *c, int dimension, boolean inverse);
 struct node *next_node(struct node *last, int dimension);
 char charAt(char *ch, int index);
-int pull_node(struct node *head, int count);
-void free_node(struct node *cur);
+int pull_node(boolean row, int count);
+//void free_node(struct node *cur);
 cs *transform_vec(int dimension, char bytes[], cs *permutation_mat);
 void distributor(struct cipher *c, FILE *in, FILE *out, int coeff);
 void permut_cipher(struct cipher *c, FILE *in, FILE *out, int dimension);
