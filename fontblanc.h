@@ -26,10 +26,12 @@ struct node {
 };
 
 int char_sum(char *s);
-char *rem_file_f_path(char *file_path, char *file_name);
-struct cipher create_cipher(char *cwd, char *file_name, char *encrypt_key, long file_length);
+int close_cipher(struct cipher *c);
+char **parse_f_path(char *file_path);
+struct cipher create_cipher(char *file_path, char *encrypt_key, long file_length);
 int encrypt(struct cipher *c);
 int decrypt(struct cipher *c);
+void fatal(char *log_path, char *message);
 char *gen_log_base_str(struct cipher *c, double log_base);
 cs *gen_permut_mat(struct cipher *c, int dimension, boolean inverse);
 struct node *next_node(struct node *last, int dimension);
