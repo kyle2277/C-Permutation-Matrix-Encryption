@@ -28,7 +28,8 @@ struct cipher create_cipher(char *file_path, char *encrypt_key, long file_length
     char *file_name = processed[0];
     char *just_path = processed[1];
     char *log_path = LOG_OUTPUT;
-    struct cipher c = {.permut_map={}, .log_path=log_path, .file_name=file_name, .file_path=just_path,
+    struct cipher c = {.map_i={}, .map_j={}, .map_v={}, .inv_map_i={}, .inv_map_j={}, .inv_map_v={},
+            .log_path=log_path, .file_name=file_name, .file_path=just_path,
             .encrypt_key=encrypt_key, .encrypt_key_val=encrypt_key_val, .bytes_remainging=bytes_remaining};
     return c;
 }
@@ -180,26 +181,32 @@ cs *gen_permut_mat(struct cipher *c, int dimension, boolean inverse) {
     j_head->next = next_node(j_head, dimension);
     int list_len = dimension;
     //create permutation matrix
-    double ast[dimension];
-    int ist[dimension];
-    int jst[dimension];
+    struct PMAT_I *i = (struct PMAT_I *)malloc(sizeof(struct PMAT_I) + sizeof(int)*dimension);
+    i->dimension = dimension;
+    struct PMAT_J *j = (struct PMAT_J *)malloc(sizeof(struct PMAT_J) + sizeof(int)*dimension);
+    j->dimension = dimension;
+    struct PMAT_V *v = (struct PMAT_V *)malloc(sizeof(struct PMAT_V) + sizeof(int)*dimension);
+    v->dimension = dimension;
+    double *acc = (double *)malloc(sizeof(double)*dimension); //matrix values
+    int *icc = (int *)malloc(sizeof(int)*dimension); //row indexes
+    int *jcc = (int *)malloc(sizeof(int)*dimension); //column indexes
     int dimension_counter = 0;
     for(int k = 0; k < 2*dimension; k+=2) {
-        ast[dimension_counter] = 1.0;
+        acc[dimension_counter] = 1.0;
         if(list_len == 1) {
-            ist[dimension_counter] = i_head->number;
-            jst[dimension_counter] = j_head->number;
+            icc[dimension_counter] = i_head->number;
+            jcc[dimension_counter] = j_head->number;
         } else {
             int row = charAt(linked, k) - '0';
             row = row % list_len;
             //printf("row: %d\n", row);
             int i_val = pull_node(true, row);
-            ist[dimension_counter] = i_val;
+            jcc[dimension_counter] = i_val;
             int column = charAt(linked, k+1) - '0';
             column = column % list_len;
             //printf("column: %d\n", column);
             int j_val = pull_node(false, column);
-            jst[dimension_counter] = j_val;
+            jcc[dimension_counter] = j_val;
             dimension_counter++;
             list_len--;
         }
@@ -211,14 +218,8 @@ cs *gen_permut_mat(struct cipher *c, int dimension, boolean inverse) {
     free(j_head);
     //put permutation matrix in cipher dictionary
     clock_t start_write = clock();
-    remove("stdio_temp.st");
-    r8st_write("stdio_temp.st", dimension, dimension, dimension, ist, jst, ast);
-    FILE *f_mat = fopen("stdio_temp.st", "r");
-    cs *load_triplet = cs_load(f_mat);
-    fclose(f_mat);
-    remove("stdio_temp.st");
-    cs *permut_matrix = cs_triplet(load_triplet);
-    clock_t diff_write = clock() - start;
+    i->icc = icc;
+    clock_t diff_write = clock() - start_write;
     time_total_write += diff_write;
     return inverse ? cs_transpose(permut_matrix, dimension) : permut_matrix;
 }

@@ -8,9 +8,29 @@
 
 typedef enum { false, true } boolean;
 
+// Permutation matrix structure
+struct PMAT_I {
+    int dimension;
+    int icc[]; //row indexes
+};
+
+struct PMAT_J {
+    int dimension;
+    int jcc[]; //column indexes
+};
+
+struct PMAT_V {
+    int dimension;
+    double acc[]; //compressed-column values
+};
+
 struct cipher {
-    cs *permut_map[MAPSIZE];
-    cs *inv_permut_map[MAPSIZE];
+    struct PMAT_I *map_i[MAPSIZE];
+    struct PMAT_J *map_j[MAPSIZE];
+    struct PMAT_V *map_v[MAPSIZE];
+    struct PMAT_I *inv_map_i[MAPSIZE];
+    struct PMAT_J *inv_map_j[MAPSIZE];
+    struct PMAT_V *inv_map_v[MAPSIZE];
     char *log_path;
     char *file_name;
     char *file_path;
@@ -41,8 +61,6 @@ int pull_node(boolean row, int count);
 cs *transform_vec(int dimension, char bytes[], cs *permutation_mat);
 void distributor(struct cipher *c, FILE *in, FILE *out, int coeff);
 void permut_cipher(struct cipher *c, FILE *in, FILE *out, int dimension);
-void hello(struct cipher *c);
-void st_test(void);
 cs *lookup(struct cipher *c, int size);
 
 #endif
