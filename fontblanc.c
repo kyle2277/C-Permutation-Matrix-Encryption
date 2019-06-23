@@ -14,6 +14,7 @@
 clock_t time_total_gen;
 clock_t time_total_write;
 clock_t time_transformation;
+clock_t time_w_transform;
 struct node *i_head, *j_head;
 
 /*
@@ -36,6 +37,7 @@ int encrypt(struct cipher *c) {
     time_total_gen = 0;
     time_total_write = 0;
     time_transformation = 0;
+    time_w_transform = 0;
     char *f_in_path = (char *)malloc(sizeof(char)*256);
     sprintf(f_in_path, "%s%s", c->file_path, c->file_name);
     FILE *in = fopen(f_in_path, "r");
@@ -46,6 +48,7 @@ int encrypt(struct cipher *c) {
     printf("Time generating permutation matrices (ms): %.2lf\n", (double)time_total_gen*1000/CLOCKS_PER_SEC);
     printf("Time writing matrices to file (ms): %.2lf\n", (double)time_total_write*1000/CLOCKS_PER_SEC);
     printf("Time performing linear transformation (ms): %.2lf\n", (double)time_transformation*1000/CLOCKS_PER_SEC);
+    printf("Time writing transformation matrix to file (ms): %.2lf\n", (double)time_w_transform*1000/CLOCKS_PER_SEC);
     free(f_in_path);
     free(f_out_path);
     fclose(in);
@@ -293,7 +296,6 @@ int pull_node(boolean row, int count) {
  * Performs the linear transformation operation on the byte vector and returns the resulting vector
  */
 cs *transform_vec(int dimension, char bytes[], cs *permutation_mat) {
-    clock_t transform_start = clock();
     int *ist = (int *)malloc(sizeof(int)*dimension);
     int *jst = (int *)malloc(sizeof(int)*dimension);
     double *ast = (double *)malloc(sizeof(double)*dimension);
@@ -302,12 +304,16 @@ cs *transform_vec(int dimension, char bytes[], cs *permutation_mat) {
         jst[i] = 0;
         ast[i] = bytes[i];
     }
+    clock_t w_transform = clock();
     r8st_write("stdio_vec_temp.st", dimension, dimension, dimension, ist, jst, ast);
     FILE *f_in = fopen("stdio_vec_temp.st", "r");
     cs *load_triplet = cs_load(f_in);
     fclose(f_in);
     remove("stdio_vec_temp.st");
     cs *data_vec = cs_triplet(load_triplet);
+    clock_t w_diff = clock() - w_transform;
+    time_w_transform += w_diff;
+    clock_t transform_start = clock();
     cs *result = cs_multiply(permutation_mat, data_vec);
     clock_t transform_diff = clock() - transform_start;
     time_transformation += transform_diff;
