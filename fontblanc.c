@@ -218,7 +218,7 @@ cs *gen_permut_mat(struct cipher *c, int dimension, boolean inverse) {
     fclose(f_mat);
     remove("stdio_temp.st");
     cs *permut_matrix = cs_triplet(load_triplet);
-    clock_t diff_write = clock() - start;
+    clock_t diff_write = clock() - start_write;
     time_total_write += diff_write;
     return inverse ? cs_transpose(permut_matrix, dimension) : permut_matrix;
 }
