@@ -15,7 +15,6 @@
 clock_t time_total_gen;
 clock_t time_total_write;
 clock_t time_transformation;
-clock_t time_w_transform;
 struct node *i_head, *j_head;
 
 /*
@@ -39,7 +38,6 @@ int encrypt(struct cipher *c) {
     time_total_gen = 0;
     time_total_write = 0;
     time_transformation = 0;
-    time_w_transform = 0;
     char *f_in_path = (char *)malloc(sizeof(char)*256);
     sprintf(f_in_path, "%s%s", c->file_path, c->file_name);
     FILE *in = fopen(f_in_path, "r");
@@ -50,7 +48,6 @@ int encrypt(struct cipher *c) {
     printf("Time generating permutation matrices (ms): %.2lf\n", (double)time_total_gen*1000/CLOCKS_PER_SEC);
     printf("Time writing matrices to file (ms): %.2lf\n", (double)time_total_write*1000/CLOCKS_PER_SEC);
     printf("Time performing linear transformation (ms): %.2lf\n", (double)time_transformation*1000/CLOCKS_PER_SEC);
-    printf("Time writing transformation matrix to file (ms): %.2lf\n", (double)time_w_transform*1000/CLOCKS_PER_SEC);
     free(f_in_path);
     free(f_out_path);
     fclose(in);
@@ -302,31 +299,15 @@ int pull_node(boolean row, int count) {
  * Performs the linear transformation operation on the byte vector and returns the resulting vector
  */
 double *transform_vec(int dimension, char bytes[], struct PMAT *pm) {
-    int *ist = (int *)malloc(sizeof(int)*dimension);
-    int *jst = (int *)malloc(sizeof(int)*dimension);
-    double *ast = (double *)malloc(sizeof(double)*dimension);
+    double *acc = (double *)malloc(sizeof(double)*dimension);
     for(int i = 0; i < dimension; i++) {
-        ast[i] = bytes[i];
+        acc[i] = bytes[i];
     }
-    clock_t w_transform = clock();
-    r8st_write("stdio_vec_temp.st", dimension, dimension, dimension, ist, jst, ast);
-    FILE *f_in = fopen("stdio_vec_temp.st", "r");
-    cs *load_triplet = cs_load(f_in);
-    fclose(f_in);
-    remove("stdio_vec_temp.st");
-    cs *data_vec = cs_triplet(load_triplet);
-    clock_t w_diff = clock() - w_transform;
-    time_w_transform += w_diff;
     clock_t transform_start = clock();
-    double *result = (double *)malloc(sizeof(double)*dimension);
-    result = cc_mv(dimension, dimension, dimension, pm->i->icc, pm->j->icc, pm->v->acc, ast);
-    //matrix multiplication
-    //cs *result = cs_multiply(permutation_mat, data_vec);
+    double *result = cc_mv(dimension, dimension, dimension, pm->i->icc, pm->j->icc, pm->v->acc, acc);
     clock_t transform_diff = clock() - transform_start;
     time_transformation += transform_diff;
-    free(ist);
-    free(jst);
-    free(ast);
+    free(acc);
     return result;
 }
 
@@ -355,17 +336,14 @@ void permut_cipher(struct cipher *c, FILE *in, FILE *out, int dimension) {
     struct PMAT *permutation_mat = pm ? pm : gen_permut_mat(c, dimension, inverse);
     char *data_in = (char *)malloc(sizeof(char)*dimension);
     fread(data_in, 1, (size_t)dimension, in);
-    double *result = (double *)malloc(sizeof(double)*dimension);
-    result = transform_vec(dimension, data_in, permutation_mat);
+    double *result = transform_vec(dimension, data_in, permutation_mat);
     //parse result, done w/ coefficient value
     unsigned char *byte_data = (unsigned char *) calloc((size_t)dimension, sizeof(unsigned char));
-    int *byte_ptr = result->i;
+    double *byte_ptr = result;
     //optimize double --> int --> unsigned char
     for(int i = 0; i < dimension; i++) {
-        int val_indx = *byte_ptr;
-        //printf("%d\n", val_indx);
-        byte_data[val_indx] = (unsigned char)*(result->x+i);
-        //printf("%d\n", byte_data[val_indx]);
+        byte_data[i] = (unsigned char)*byte_ptr;
+        //printf("%d\n", byte_data[i]);
         byte_ptr++;
     }
     fwrite(byte_data, 1, (size_t)dimension, out);
