@@ -58,7 +58,7 @@ struct node *next_node(struct node *last, int dimension);
 char charAt(char *ch, int index);
 int pull_node(boolean row, int count);
 //void free_node(struct node *cur);
-double *transform_vec(int dimension, char bytes[], cs *permutation_mat);
+double *transform_vec(int dimension, char bytes[], struct PMAT *pm);
 void distributor(struct cipher *c, FILE *in, FILE *out, int coeff);
 void permut_cipher(struct cipher *c, FILE *in, FILE *out, int dimension);
 struct PMAT *lookup(struct cipher *c, int size);

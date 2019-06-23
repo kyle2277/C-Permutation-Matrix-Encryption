@@ -7,6 +7,7 @@
 #include "fontblanc.h"
 #include "Dependencies/csparse.h"
 #include "Dependencies/st_io.h"
+#include "Dependencies/st_to_cc.h"
 
 #define ENCRYPT_TAG "e_"
 #define ENCRYPT_EXT ".fbc"
@@ -300,13 +301,11 @@ int pull_node(boolean row, int count) {
  * Takes the matrix dimension, a list of bytes from the file and relevant permutation matrix
  * Performs the linear transformation operation on the byte vector and returns the resulting vector
  */
-double *transform_vec(int dimension, char bytes[], cs *permutation_mat) {
+double *transform_vec(int dimension, char bytes[], struct PMAT *pm) {
     int *ist = (int *)malloc(sizeof(int)*dimension);
     int *jst = (int *)malloc(sizeof(int)*dimension);
     double *ast = (double *)malloc(sizeof(double)*dimension);
     for(int i = 0; i < dimension; i++) {
-        ist[i] = i;
-        jst[i] = 0;
         ast[i] = bytes[i];
     }
     clock_t w_transform = clock();
@@ -319,7 +318,10 @@ double *transform_vec(int dimension, char bytes[], cs *permutation_mat) {
     clock_t w_diff = clock() - w_transform;
     time_w_transform += w_diff;
     clock_t transform_start = clock();
-    cs *result = cs_multiply(permutation_mat, data_vec);
+    double *result = (double *)malloc(sizeof(double)*dimension);
+    result = cc_mv(dimension, dimension, dimension, pm->i->icc, pm->j->icc, pm->v->acc, ast);
+    //matrix multiplication
+    //cs *result = cs_multiply(permutation_mat, data_vec);
     clock_t transform_diff = clock() - transform_start;
     time_transformation += transform_diff;
     free(ist);
