@@ -132,12 +132,12 @@ int char_sum(char *s) {
  */
 char *gen_log_base_str(struct cipher *c, double log_base) {
     double output = log(c->encrypt_key_val)/log(log_base);
-    char *log_base_str = (char *)malloc((sizeof(char)*256));
-    memset(log_base_str, '\0', strlen(log_base_str));
+    char *log_base_str = (char *)calloc(256, sizeof(char));
+    //memset(log_base_str, '\0', strlen(log_base_str));
     sprintf(log_base_str, "%.15lf", output);
 //    printf("%s\n", log_base_str);
-    char *final_output = (char *)malloc((sizeof(char)*256));
-    memset(final_output, '\0', strlen(final_output));
+    char *final_output = (char *)calloc(256, sizeof(char));
+    //memset(final_output, '\0', strlen(final_output));
     for(char *ptr = log_base_str; *ptr != '\0'; ptr++) {
         if(*ptr != '.') {
             strncat(final_output, ptr, 1);
