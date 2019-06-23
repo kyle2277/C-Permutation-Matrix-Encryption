@@ -195,16 +195,17 @@ struct PMAT *gen_permut_mat(struct cipher *c, int dimension, boolean inverse) {
             icc[dimension_counter] = i_head->number;
             jcc[dimension_counter] = j_head->number;
         } else {
-            int row = charAt(linked, k) - '0';
+            int row = (charAt(linked, k) - '0');
             row = row % list_len;
             //printf("row: %d\n", row);
             int i_val = pull_node(true, row);
-            jcc[dimension_counter] = i_val;
-            int column = charAt(linked, k+1) - '0';
+            icc[dimension_counter] = i_val;
+            int column = (charAt(linked, k+1) - '0');
             column = column % list_len;
             //printf("column: %d\n", column);
             int j_val = pull_node(false, column);
             jcc[dimension_counter] = j_val;
+            printf("%d %d\n", i_val, j_val);
             dimension_counter++;
             list_len--;
         }
@@ -319,7 +320,7 @@ void distributor(struct cipher *c, FILE *in, FILE *out, int coeff) {
         if(map_itr == map_len) {
             map_itr = 0;
         }
-        int dimension = (charAt(encrypt_map, map_itr) - '0') + 1;
+        int dimension = (1024 / (charAt(encrypt_map, map_itr) - '0') + 1);
         permut_cipher(c, in, out, coeff*dimension);
     }
     int b = (int) c->bytes_remainging;
