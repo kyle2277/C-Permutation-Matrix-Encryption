@@ -9,28 +9,28 @@
 typedef enum { false, true } boolean;
 
 // Permutation matrix structure
+struct PMAT {
+    int dimension;
+    struct PMAT_I *i;
+    struct PMAT_I *j;
+    struct PMAT_V *v;
+};
+
+// matrix index structure
 struct PMAT_I {
     int dimension;
-    int icc[]; //row indexes
+    int icc[]; //row/column indexes
 };
 
-struct PMAT_J {
-    int dimension;
-    int jcc[]; //column indexes
-};
-
+//matrix values structure
 struct PMAT_V {
     int dimension;
-    double acc[]; //compressed-column values
+    double acc[]; //compressed column values
 };
 
 struct cipher {
-    struct PMAT_I *map_i[MAPSIZE];
-    struct PMAT_J *map_j[MAPSIZE];
-    struct PMAT_V *map_v[MAPSIZE];
-    struct PMAT_I *inv_map_i[MAPSIZE];
-    struct PMAT_J *inv_map_j[MAPSIZE];
-    struct PMAT_V *inv_map_v[MAPSIZE];
+    struct PMAT *permut_map[MAPSIZE];
+    struct PMAT *inv_permut_map[MAPSIZE];
     char *log_path;
     char *file_name;
     char *file_path;
@@ -53,14 +53,14 @@ int encrypt(struct cipher *c);
 int decrypt(struct cipher *c);
 void fatal(char *log_path, char *message);
 char *gen_log_base_str(struct cipher *c, double log_base);
-cs *gen_permut_mat(struct cipher *c, int dimension, boolean inverse);
+struct PMAT *gen_permut_mat(struct cipher *c, int dimension, boolean inverse);
 struct node *next_node(struct node *last, int dimension);
 char charAt(char *ch, int index);
 int pull_node(boolean row, int count);
 //void free_node(struct node *cur);
-cs *transform_vec(int dimension, char bytes[], cs *permutation_mat);
+double *transform_vec(int dimension, char bytes[], cs *permutation_mat);
 void distributor(struct cipher *c, FILE *in, FILE *out, int coeff);
 void permut_cipher(struct cipher *c, FILE *in, FILE *out, int dimension);
-cs *lookup(struct cipher *c, int size);
+struct PMAT *lookup(struct cipher *c, int size);
 
 #endif
