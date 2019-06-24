@@ -189,9 +189,6 @@ struct PMAT *gen_permut_mat(struct cipher *c, int dimension, boolean inverse) {
     m->j = mj;
     m->v = mv;
     int dimension_counter = 0;
-//    FILE *pmat_vals = fopen("pmat_vals.csv", "w");
-//    char *header = "I,J\n";
-//    fwrite(header, sizeof(char), strlen(header), pmat_vals);
     for(int k = 0; k < 2*dimension; k+=2) {
         int i_val;
         int j_val;
@@ -202,15 +199,10 @@ struct PMAT *gen_permut_mat(struct cipher *c, int dimension, boolean inverse) {
         } else {
             int row = (charAt(linked, k) - '0');
             row = row == 0 ? list_len : (row*1024) % list_len;
-            //printf("row: %d\n", row);
             i_val = pull_node(true, row);
             int column = (charAt(linked, k+1) - '0');
             column = column == 0 ? list_len : (column*1024) % list_len;
-            //printf("column: %d\n", column);
             j_val = pull_node(false, column);
-//            char *write = (char *)malloc(sizeof(char) *120);
-//            sprintf(write, "%d,%d\n", i_val, j_val);
-//            fwrite(write, sizeof(char), strlen(write), pmat_vals);
             dimension_counter++;
             list_len--;
         }
