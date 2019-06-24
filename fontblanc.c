@@ -176,9 +176,12 @@ struct PMAT *gen_permut_mat(struct cipher *c, int dimension, boolean inverse) {
     j_head->next = next_node(j_head, dimension);
     int list_len = dimension;
     //create permutation matrix
-    double *acc = (double *)malloc(sizeof(double)*dimension); //matrix values
-    int *icc = (int *)malloc(sizeof(int)*dimension); //row indexes
-    int *jcc = (int *)malloc(sizeof(int)*dimension); //column indexes
+    double acc[dimension];
+    int icc[dimension];
+    int jcc[dimension];
+//    double *acc = (double *)malloc(sizeof(double)*dimension); //matrix values
+//    int *icc = (int *)malloc(sizeof(int)*dimension); //row indexes
+//    int *jcc = (int *)malloc(sizeof(int)*dimension); //column indexes
     struct PMAT_I *mi = (struct PMAT_I *)malloc(sizeof(*mi) + sizeof(int)*dimension);
     struct PMAT_I *mj = (struct PMAT_I *)malloc(sizeof(*mj) + sizeof(int)*(dimension+1));
     struct PMAT_V *mv = (struct PMAT_V *)malloc(sizeof(*mv) + sizeof(double)*dimension);
