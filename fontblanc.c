@@ -191,6 +191,7 @@ struct PMAT *gen_permut_mat(struct cipher *c, int dimension, boolean inverse) {
     m->i = mi;
     m->j = mj;
     m->v = mv;
+//    FILE *f_vals = fopen("pmat_vals.csv", "w");
     int dimension_counter = 0;
     for(int k = 0; k < 2*dimension; k+=2) {
         int i_val;
@@ -201,19 +202,25 @@ struct PMAT *gen_permut_mat(struct cipher *c, int dimension, boolean inverse) {
             j_val = j_head->number;
         } else {
             int row = (charAt(linked, k) - '0');
-            row = row == 0 ? list_len : (row*1024) % list_len;
+            //row = row == 0 ? list_len : (row*1024) % list_len;
+            row = ((row+1)*1024) % list_len;
             i_val = pull_node(true, row);
             int column = (charAt(linked, k+1) - '0');
-            column = column == 0 ? list_len : (column*1024) % list_len;
+            //column = column == 0 ? list_len : (column*1024) % list_len;
+            column = ((column+1)*1024) % list_len;
             j_val = pull_node(false, column);
+//            char *write = (char *)malloc(sizeof(char)*120);
+//            sprintf(write, "%d,%d\n", i_val, j_val);
+//            fwrite(write, sizeof(char), strlen(write), f_vals);
+//            free(write);
             dimension_counter++;
             list_len--;
         }
         jcc[j_val] = j_val;
         icc[j_val] = i_val;
     }
+//    fclose(f_vals);
     jcc[dimension] = dimension;
-    //fclose(pmat_vals);
     clock_t difference = clock() - start;
     time_total_gen += difference;
     free(linked);
