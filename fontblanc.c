@@ -10,7 +10,7 @@
 #include "Dependencies/st_to_cc.h"
 
 #define ENCRYPT_TAG "e_"
-#define ENCRYPT_EXT ".fbc"
+#define ENCRYPT_EXT ".txt"
 #define DECRYPT_TAG "d_"
 clock_t time_total_gen;
 clock_t time_total_write;
@@ -180,36 +180,45 @@ struct PMAT *gen_permut_mat(struct cipher *c, int dimension, boolean inverse) {
     int *icc = (int *)malloc(sizeof(int)*dimension); //row indexes
     int *jcc = (int *)malloc(sizeof(int)*dimension); //column indexes
     struct PMAT_I *mi = (struct PMAT_I *)malloc(sizeof(*mi) + sizeof(int)*dimension);
-    struct PMAT_I *mj = (struct PMAT_I *)malloc(sizeof(*mj) + sizeof(int)*dimension);
+    struct PMAT_I *mj = (struct PMAT_I *)malloc(sizeof(*mj) + sizeof(int)*(dimension+1));
     struct PMAT_V *mv = (struct PMAT_V *)malloc(sizeof(*mv) + sizeof(double)*dimension);
     struct PMAT *m = (struct PMAT *)malloc(sizeof(*m) + sizeof(struct PMAT_I) + sizeof(int)*dimension
-            + sizeof(struct PMAT_I) + sizeof(int)*dimension + sizeof(struct PMAT_V) + sizeof(double)*dimension);
+            + sizeof(struct PMAT_I) + sizeof(int)*(dimension+1) + sizeof(struct PMAT_V) + sizeof(double)*dimension);
     m->dimension = dimension;
     m->i = mi;
     m->j = mj;
     m->v = mv;
     int dimension_counter = 0;
+//    FILE *pmat_vals = fopen("pmat_vals.csv", "w");
+//    char *header = "I,J\n";
+//    fwrite(header, sizeof(char), strlen(header), pmat_vals);
     for(int k = 0; k < 2*dimension; k+=2) {
+        int i_val;
+        int j_val;
         acc[dimension_counter] = 1.0;
         if(list_len == 1) {
-            icc[dimension_counter] = i_head->number;
-            jcc[dimension_counter] = j_head->number;
+            i_val = i_head->number;
+            j_val = j_head->number;
         } else {
             int row = (charAt(linked, k) - '0');
-            row = row % list_len;
+            row = row == 0 ? list_len : (row*1024) % list_len;
             //printf("row: %d\n", row);
-            int i_val = pull_node(true, row);
-            icc[dimension_counter] = i_val;
+            i_val = pull_node(true, row);
             int column = (charAt(linked, k+1) - '0');
-            column = column % list_len;
+            column = column == 0 ? list_len : (column*1024) % list_len;
             //printf("column: %d\n", column);
-            int j_val = pull_node(false, column);
-            jcc[dimension_counter] = j_val;
-            printf("%d %d\n", i_val, j_val);
+            j_val = pull_node(false, column);
+//            char *write = (char *)malloc(sizeof(char) *120);
+//            sprintf(write, "%d,%d\n", i_val, j_val);
+//            fwrite(write, sizeof(char), strlen(write), pmat_vals);
             dimension_counter++;
             list_len--;
         }
+        jcc[j_val] = j_val;
+        icc[j_val] = i_val;
     }
+    jcc[dimension] = dimension;
+    //fclose(pmat_vals);
     clock_t difference = clock() - start;
     time_total_gen += difference;
     free(linked);
@@ -218,7 +227,7 @@ struct PMAT *gen_permut_mat(struct cipher *c, int dimension, boolean inverse) {
     //put permutation matrix in cipher dictionary
     clock_t start_write = clock();
     memcpy(m->i->icc, icc, sizeof(int)*dimension);
-    memcpy(m->j->icc, jcc, sizeof(int)*dimension);
+    memcpy(m->j->icc, jcc, sizeof(int)*(dimension+1));
     memcpy(m->v->acc, acc, sizeof(double)*dimension);
     clock_t diff_write = clock() - start_write;
     time_total_write += diff_write;
@@ -320,7 +329,9 @@ void distributor(struct cipher *c, FILE *in, FILE *out, int coeff) {
         if(map_itr == map_len) {
             map_itr = 0;
         }
-        int dimension = (1024 / (charAt(encrypt_map, map_itr) - '0') + 1);
+        //todo improve dimension randomization
+        int tmp = (charAt(encrypt_map, map_itr) - '0') + 1;
+        int dimension = 1024/tmp;
         permut_cipher(c, in, out, coeff*dimension);
     }
     int b = (int) c->bytes_remainging;
