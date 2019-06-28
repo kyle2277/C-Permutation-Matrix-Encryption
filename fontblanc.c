@@ -15,6 +15,7 @@
 clock_t time_total_gen;
 clock_t time_total_write;
 clock_t time_transformation;
+clock_t time_p_loop;
 struct node *i_head, *j_head;
 
 /*
@@ -38,6 +39,7 @@ int encrypt(struct cipher *c) {
     time_total_gen = 0;
     time_total_write = 0;
     time_transformation = 0;
+    time_p_loop = 0;
     char *f_in_path = (char *)malloc(sizeof(char)*256);
     sprintf(f_in_path, "%s%s", c->file_path, c->file_name);
     FILE *in = fopen(f_in_path, "r");
@@ -48,6 +50,7 @@ int encrypt(struct cipher *c) {
     printf("Time generating permutation matrices (ms): %.2lf\n", (double)time_total_gen*1000/CLOCKS_PER_SEC);
     printf("Time writing matrices to file (ms): %.2lf\n", (double)time_total_write*1000/CLOCKS_PER_SEC);
     printf("Time performing linear transformation (ms): %.2lf\n", (double)time_transformation*1000/CLOCKS_PER_SEC);
+    printf("Time in node pull loop (ms): %.2lf\n", (double)time_p_loop*1000/CLOCKS_PER_SEC);
     free(f_in_path);
     free(f_out_path);
     fclose(in);
@@ -131,17 +134,15 @@ int char_sum(char *s) {
  */
 char *gen_log_base_str(struct cipher *c, double log_base) {
     double output = log(c->encrypt_key_val)/log(log_base);
-    char *log_base_str = (char *)calloc(256, sizeof(char));
+    char *log_base_str = (char *)calloc(64, sizeof(char));
     sprintf(log_base_str, "%.15lf", output);
-//    printf("%s\n", log_base_str);
-    char *final_output = (char *)calloc(256, sizeof(char));
-    for(char *ptr = log_base_str; *ptr != '\0'; ptr++) {
-        if(*ptr != '.') {
-            strncat(final_output, ptr, 1);
-        }
+    while(*log_base_str != '.') {
+        log_base_str++;
     }
-//    printf("%s\n", final_output);
-    free(log_base_str);
+    log_base_str++;
+    char *final_output = (char *)malloc(sizeof(char)*strlen(log_base_str));
+    strcpy(final_output, log_base_str);
+//    printf("%s\n", log_base_str);
     return final_output;
 }
 
@@ -152,10 +153,10 @@ char *gen_log_base_str(struct cipher *c, double log_base) {
 struct PMAT *gen_permut_mat(struct cipher *c, int dimension, boolean inverse) {
     clock_t start = clock();
     int num_matrices = 1;
-    if(2*dimension > 16) {
-        num_matrices = (((2*dimension) - ((2*dimension)%16))/16) + 1;
+    if(2*dimension > 15) {
+        num_matrices = (((2*dimension) - ((2*dimension)%15))/15) + 1;
     }
-    char *linked = (char *)calloc((size_t)16*dimension, sizeof(char));
+    char *linked = (char *)calloc((size_t)15*dimension, sizeof(char));
     //create string used to choose permutation matrix
     for(int i = 0; i < num_matrices; i++) {
         int logBase = i + dimension;
@@ -193,6 +194,7 @@ struct PMAT *gen_permut_mat(struct cipher *c, int dimension, boolean inverse) {
     m->v = mv;
 //    FILE *f_vals = fopen("pmat_vals.csv", "w");
     int dimension_counter = 0;
+    clock_t p_loop = clock();
     for(int k = 0; k < 2*dimension; k+=2) {
         int i_val;
         int j_val;
@@ -202,12 +204,14 @@ struct PMAT *gen_permut_mat(struct cipher *c, int dimension, boolean inverse) {
             j_val = j_head->number;
         } else {
             int row = (charAt(linked, k) - '0');
+            //row = row % list_len;
+            row = ((row+1)*dimension) % list_len;
             //row = row == 0 ? list_len : (row*1024) % list_len;
-            row = ((row+1)*1024) % list_len;
             i_val = pull_node(true, row);
             int column = (charAt(linked, k+1) - '0');
+            //column = column % list_len;
+            column = ((column+1)*dimension) % list_len;
             //column = column == 0 ? list_len : (column*1024) % list_len;
-            column = ((column+1)*1024) % list_len;
             j_val = pull_node(false, column);
 //            char *write = (char *)malloc(sizeof(char)*120);
 //            sprintf(write, "%d,%d\n", i_val, j_val);
@@ -219,6 +223,8 @@ struct PMAT *gen_permut_mat(struct cipher *c, int dimension, boolean inverse) {
         jcc[j_val] = j_val;
         icc[j_val] = i_val;
     }
+    clock_t p_loop_diff = clock() - p_loop;
+    time_p_loop += p_loop_diff;
 //    fclose(f_vals);
     jcc[dimension] = dimension;
     clock_t difference = clock() - start;
