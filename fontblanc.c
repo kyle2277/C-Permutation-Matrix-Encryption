@@ -17,6 +17,8 @@ clock_t time_total_write;
 clock_t time_transformation;
 clock_t time_p_loop;
 struct node *i_head, *j_head;
+struct node *trash[2048];
+int trash_indx;
 
 /*
  * Create a cipher structure for the given file with the given encryption key
@@ -175,14 +177,10 @@ struct PMAT *gen_permut_mat(struct cipher *c, int dimension, boolean inverse) {
     j_head->last = NULL;
     j_head->number = 0;
     j_head->next = next_node(j_head, dimension);
-    int list_len = dimension;
     //create permutation matrix
     double acc[dimension];
     int icc[dimension];
     int jcc[dimension];
-//    double *acc = (double *)malloc(sizeof(double)*dimension); //matrix values
-//    int *icc = (int *)malloc(sizeof(int)*dimension); //row indexes
-//    int *jcc = (int *)malloc(sizeof(int)*dimension); //column indexes
     struct PMAT_I *mi = (struct PMAT_I *)malloc(sizeof(*mi) + sizeof(int)*dimension);
     struct PMAT_I *mj = (struct PMAT_I *)malloc(sizeof(*mj) + sizeof(int)*(dimension+1));
     struct PMAT_V *mv = (struct PMAT_V *)malloc(sizeof(*mv) + sizeof(double)*dimension);
@@ -194,24 +192,22 @@ struct PMAT *gen_permut_mat(struct cipher *c, int dimension, boolean inverse) {
     m->v = mv;
 //    FILE *f_vals = fopen("pmat_vals.csv", "w");
     int dimension_counter = 0;
+    int list_len = dimension;
     clock_t p_loop = clock();
+    int i_val;
+    int j_val;
+    trash_indx = 0;
     for(int k = 0; k < 2*dimension; k+=2) {
-        int i_val;
-        int j_val;
         acc[dimension_counter] = 1.0;
         if(list_len == 1) {
             i_val = i_head->number;
             j_val = j_head->number;
         } else {
-            int row = (charAt(linked, k) - '0');
-            //row = row % list_len;
-            row = ((row+1)*dimension) % list_len;
-            //row = row == 0 ? list_len : (row*1024) % list_len;
+            int row = (charAt(linked, k)-'0');
+            row = ((row+1) * dimension) % list_len;
             i_val = pull_node(true, row);
-            int column = (charAt(linked, k+1) - '0');
-            //column = column % list_len;
-            column = ((column+1)*dimension) % list_len;
-            //column = column == 0 ? list_len : (column*1024) % list_len;
+            int column = (charAt(linked, k + 1)-'0');
+            column = ((column+1) * dimension) % list_len;
             j_val = pull_node(false, column);
 //            char *write = (char *)malloc(sizeof(char)*120);
 //            sprintf(write, "%d,%d\n", i_val, j_val);
@@ -232,14 +228,22 @@ struct PMAT *gen_permut_mat(struct cipher *c, int dimension, boolean inverse) {
     free(linked);
     free(i_head);
     free(j_head);
+    empty_trash();
     //put permutation matrix in cipher dictionary
     clock_t start_write = clock();
     memcpy(m->i->icc, icc, sizeof(int)*dimension);
     memcpy(m->j->icc, jcc, sizeof(int)*(dimension+1));
     memcpy(m->v->acc, acc, sizeof(double)*dimension);
+    if(inverse) {
+        //m = transpose(m, dimension);
+        c->inv_permut_map[dimension] = m;
+    } else {
+        c->permut_map[dimension] = m;
+    }
     clock_t diff_write = clock() - start_write;
     time_total_write += diff_write;
     //todo inverse function
+    //printf("created mat, %d\n", dimension);
     return m;
     //return inverse ? cs_transpose(permut_matrix, dimension) : permut_matrix;
 }
@@ -248,6 +252,15 @@ char charAt(char *ch, int index) {
     char *ptr = ch;
     ptr = ptr + index;
     return *ptr;
+}
+
+void empty_trash() {
+    for(int i = 0; i < 1024; i++) {
+        if(trash[i]) {
+            free(trash[i]);
+            trash[i] = NULL;
+        }
+    }
 }
 
 /*
@@ -297,20 +310,12 @@ int pull_node(boolean row, int count) {
         cur->last->next = cur->next;
         cur->next->last = cur->last;
     }
-    //todo free node
+    //free the node
     //free(cur);
-    //free_node(cur);
+    trash[trash_indx] = cur;
+    trash_indx++;
     return num;
 }
-
-//*
-// * Frees a node's resources
-// */
-//void free_node(struct node *cur) {
-//    free(cur->next);
-//    free(cur->last);
-//    free(cur);
-//}
 
 /*
  * Takes the matrix dimension, a list of bytes from the file and relevant permutation matrix
