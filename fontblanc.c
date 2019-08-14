@@ -16,28 +16,28 @@ clock_t time_total_gen;
 clock_t time_total_write;
 clock_t time_transformation;
 clock_t time_p_loop;
-struct node *i_head, *j_head;
-struct node *trash[2048];
+node *i_head, *j_head;
+node *trash[2048];
 int trash_indx;
 
 /*
  * Create a cipher structure for the given file with the given encryption key
  * Returns the cipher structure
  */
-struct cipher create_cipher(char *file_path, char *encrypt_key, long file_length) {
+cipher create_cipher(char *file_path, char *encrypt_key, long file_length) {
     int encrypt_key_val = char_sum(encrypt_key);
     long bytes_remaining = file_length;
     char **processed = parse_f_path(file_path);
     char *file_name = processed[0];
     char *just_path = processed[1];
     char *log_path = LOG_OUTPUT;
-    struct cipher c = {.permut_map={}, .inv_permut_map={}, .log_path=log_path, .file_name=file_name,
+    cipher c = {.permut_map={}, .inv_permut_map={}, .log_path=log_path, .file_name=file_name,
             .file_path=just_path, .encrypt_key=encrypt_key, .encrypt_key_val=encrypt_key_val,
             .bytes_remainging=bytes_remaining};
     return c;
 }
 
-int encrypt(struct cipher *c) {
+int encrypt(cipher *c) {
     time_total_gen = 0;
     time_total_write = 0;
     time_transformation = 0;
@@ -60,7 +60,7 @@ int encrypt(struct cipher *c) {
     return 1;
 }
 
-int decrypt(struct cipher *c) {
+int decrypt(cipher *c) {
     char *f_in_path = (char *)malloc(sizeof(char)*256);
     sprintf(f_in_path, "%s%s%s%s", c->file_path, ENCRYPT_TAG, c->file_name, ENCRYPT_EXT);
     FILE *in = fopen(f_in_path, "r");
@@ -89,7 +89,7 @@ void fatal(char *log_path, char *message) {
 /*
  * Delete a cipher structure
  */
-int close_cipher(struct cipher *c) {
+int close_cipher(cipher *c) {
     free(c->file_path);
     return 1;
 }
@@ -100,20 +100,18 @@ int close_cipher(struct cipher *c) {
  */
 char **parse_f_path(char *file_path) {
     char **processed = (char **)malloc(sizeof(char *)*2);
-    int name_len= 0;
-    char *file_name = (char *)malloc(sizeof(char)*256);
-    char *ptr = file_path + strlen(file_path) - 1;
-    for(int i = 0; *ptr != '/'; i++) {
-        file_name[256 - i] = *ptr;
+    size_t path_len = strlen(file_path);
+    char *ptr = file_path + path_len;
+    int name_len;
+    for(name_len = 0; *(ptr-1) != '/'; name_len++) {
         ptr--;
-        name_len++;
     }
-    char *f = &file_name[256-(name_len-1)];
-    printf("File name: %s\n", f);
-    size_t keep = strlen(file_path) - name_len;
-    char *just_path = (char *)malloc(sizeof(char)*256);
+    char *f_name = ptr;
+    printf("File name: %s\n", f_name);
+    size_t keep = path_len - name_len;
+    char *just_path = (char *)malloc(sizeof(char)*keep+1);
     strncpy(just_path, file_path, keep);
-    processed[0] = f;
+    processed[0] = f_name;
     processed[1] = just_path;
     return processed;
 }
@@ -122,11 +120,9 @@ char **parse_f_path(char *file_path) {
  * Returns the sum of the char values of a char array
  */
 int char_sum(char *s) {
-    int sum = 0;
-    char *ptr = s;
-    while(*ptr != '\0') {
-        sum += *ptr;
-        ptr++;
+    int sum;
+    for(sum = 0; *s != '\0'; s++) {
+        sum += *s;
     }
     return sum;
 }
@@ -134,7 +130,7 @@ int char_sum(char *s) {
 /*
  * Generates unique, pseudo-random string of numbers using the encryption key
  */
-char *gen_log_base_str(struct cipher *c, double log_base) {
+char *gen_log_base_str(cipher *c, double log_base) {
     double output = log(c->encrypt_key_val)/log(log_base);
     char *log_base_str = (char *)calloc(64, sizeof(char));
     sprintf(log_base_str, "%.15lf", output);
@@ -152,27 +148,27 @@ char *gen_log_base_str(struct cipher *c, double log_base) {
  * Takes the dimension of the matrix to create (dimension is negative if inverse)
  * Generates unique n-dimensional permutation matrices from the encryption key
  */
-struct PMAT *gen_permut_mat(struct cipher *c, int dimension, boolean inverse) {
+struct PMAT *gen_permut_mat(cipher *c, int dimension, boolean inverse) {
     clock_t start = clock();
-    int num_matrices = 1;
+    int sequences = 1;
     if(2*dimension > 15) {
-        num_matrices = (((2*dimension) - ((2*dimension)%15))/15) + 1;
+        sequences = (((2*dimension) - ((2*dimension)%15))/15) + 1;
     }
     char *linked = (char *)calloc((size_t)15*dimension, sizeof(char));
     //create string used to choose permutation matrix
-    for(int i = 0; i < num_matrices; i++) {
-        int logBase = i + dimension;
-        char *logBaseOutput = gen_log_base_str(c, logBase);
+    for(int i = 0; i < sequences; i++) {
+        //i + dimension = log base
+        char *logBaseOutput = gen_log_base_str(c, (i+dimension));
         sprintf(linked, "%s%s", linked, logBaseOutput);
         free(logBaseOutput);
     }
     //create linked lists used to build matrices
-    i_head = (struct node *)malloc(sizeof(struct node));
+    i_head = (node *)malloc(sizeof(node));
     i_head->last = NULL;
     i_head->number = 0;
     //{.next = NULL, .last = NULL, .number = 0};
     i_head->next = next_node(i_head, dimension);
-    j_head = (struct node *)malloc(sizeof(struct node));
+    j_head = (node *)malloc(sizeof(node));
     //{.next = NULL, .last = NULL, .number = 0};
     j_head->last = NULL;
     j_head->number = 0;
@@ -182,6 +178,7 @@ struct PMAT *gen_permut_mat(struct cipher *c, int dimension, boolean inverse) {
     int icc[dimension];
     int jcc[dimension];
     struct PMAT_I *mi = (struct PMAT_I *)malloc(sizeof(*mi) + sizeof(int)*dimension);
+    //size is N columns + 1 as required by cc_mv matrix multiplication
     struct PMAT_I *mj = (struct PMAT_I *)malloc(sizeof(*mj) + sizeof(int)*(dimension+1));
     struct PMAT_V *mv = (struct PMAT_V *)malloc(sizeof(*mv) + sizeof(double)*dimension);
     struct PMAT *m = (struct PMAT *)malloc(sizeof(*m) + sizeof(struct PMAT_I) + sizeof(int)*dimension
@@ -216,13 +213,15 @@ struct PMAT *gen_permut_mat(struct cipher *c, int dimension, boolean inverse) {
             dimension_counter++;
             list_len--;
         }
-        jcc[j_val] = j_val;
+        //put index values in array using compressed-column format
+        //row index values in order by column
         icc[j_val] = i_val;
+        //column indexes
+        jcc[j_val] = j_val;
     }
     clock_t p_loop_diff = clock() - p_loop;
     time_p_loop += p_loop_diff;
 //    fclose(f_vals);
-    jcc[dimension] = dimension;
     clock_t difference = clock() - start;
     time_total_gen += difference;
     free(linked);
@@ -245,7 +244,7 @@ struct PMAT *gen_permut_mat(struct cipher *c, int dimension, boolean inverse) {
     //todo inverse function
     //printf("created mat, %d\n", dimension);
     return m;
-    //return inverse ? cs_transpose(permut_matrix, dimension) : permut_matrix;
+//    return inverse ? cs_transpose(permut_matrix, dimension) : permut_matrix;
 }
 
 char charAt(char *ch, int index) {
@@ -255,10 +254,9 @@ char charAt(char *ch, int index) {
 }
 
 void empty_trash() {
-    for(int i = 0; i < 1024; i++) {
+    for(int i = 0; i < trash_indx; i++) {
         if(trash[i]) {
             free(trash[i]);
-            trash[i] = NULL;
         }
     }
 }
@@ -266,8 +264,8 @@ void empty_trash() {
 /*
  * Recursively creates new nodes until the correct length has been reached
  */
-struct node *next_node(struct node *last, int dimension) {
-    struct node *next = (struct node *)malloc(sizeof(struct node));
+node *next_node(node *last, int dimension) {
+    node *next = (node *)malloc(sizeof(node));
     if(last->number == dimension - 1) {
         return NULL;
     } else {
@@ -291,7 +289,7 @@ struct node *next_node(struct node *last, int dimension) {
  * Returns the number corresponding to the node in question
  */
 int pull_node(boolean row, int count) {
-    struct node *cur = row ? i_head : j_head;
+    node *cur = row ? i_head : j_head;
     for(int i = count; i > 1; i--) {
         cur = cur->next;
     }
@@ -310,8 +308,7 @@ int pull_node(boolean row, int count) {
         cur->last->next = cur->next;
         cur->next->last = cur->last;
     }
-    //free the node
-    //free(cur);
+    //free the node later
     trash[trash_indx] = cur;
     trash_indx++;
     return num;
@@ -322,7 +319,7 @@ int pull_node(boolean row, int count) {
  * Performs the linear transformation operation on the byte vector and returns the resulting vector
  */
 double *transform_vec(int dimension, char bytes[], struct PMAT *pm) {
-    double *acc = (double *)malloc(sizeof(double)*dimension);
+    double acc[dimension];
     for(int i = 0; i < dimension; i++) {
         acc[i] = bytes[i];
     }
@@ -330,11 +327,10 @@ double *transform_vec(int dimension, char bytes[], struct PMAT *pm) {
     double *result = cc_mv(dimension, dimension, dimension, pm->i->icc, pm->j->icc, pm->v->acc, acc);
     clock_t transform_diff = clock() - transform_start;
     time_transformation += transform_diff;
-    free(acc);
     return result;
 }
 
-void distributor(struct cipher *c, FILE *in, FILE *out, int coeff) {
+void distributor(cipher *c, FILE *in, FILE *out, int coeff) {
     char *encrypt_map = gen_log_base_str(c, exp(1));
     //create encrypt map of length required for file instead of looping
     int map_len = (int)strlen(encrypt_map);
@@ -354,7 +350,7 @@ void distributor(struct cipher *c, FILE *in, FILE *out, int coeff) {
     free(encrypt_map);
 }
 
-void permut_cipher(struct cipher *c, FILE *in, FILE *out, int dimension) {
+void permut_cipher(cipher *c, FILE *in, FILE *out, int dimension) {
     struct PMAT *pm = lookup(c, dimension);
     boolean inverse = dimension < 0;
     dimension = abs(dimension);
@@ -377,7 +373,7 @@ void permut_cipher(struct cipher *c, FILE *in, FILE *out, int dimension) {
     c->bytes_remainging -= dimension;
 }
 
-struct PMAT *lookup(struct cipher *c, int size) {
+struct PMAT *lookup(cipher *c, int size) {
     return size < 0 ? c->inv_permut_map[abs(size)] : c->permut_map[abs(size)];
 }
 

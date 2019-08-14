@@ -28,7 +28,7 @@ struct PMAT_V {
     double acc[]; //compressed column values
 };
 
-struct cipher {
+typedef struct {
     struct PMAT *permut_map[MAPSIZE];
     struct PMAT *inv_permut_map[MAPSIZE];
     char *log_path;
@@ -37,30 +37,30 @@ struct cipher {
     char *encrypt_key;
     int encrypt_key_val;
     long bytes_remainging;
-};
+} cipher;
 
-struct node {
+typedef struct node {
     struct node *next;
     struct node *last;
     int number;
-};
+} node;
 
 int char_sum(char *s);
-int close_cipher(struct cipher *c);
+int close_cipher(cipher *c);
 char **parse_f_path(char *file_path);
-struct cipher create_cipher(char *file_path, char *encrypt_key, long file_length);
-int encrypt(struct cipher *c);
-int decrypt(struct cipher *c);
+cipher create_cipher(char *file_path, char *encrypt_key, long file_length);
+int encrypt(cipher *c);
+int decrypt(cipher *c);
 void fatal(char *log_path, char *message);
-char *gen_log_base_str(struct cipher *c, double log_base);
-struct PMAT *gen_permut_mat(struct cipher *c, int dimension, boolean inverse);
-struct node *next_node(struct node *last, int dimension);
+char *gen_log_base_str(cipher *c, double log_base);
+struct PMAT *gen_permut_mat(cipher *c, int dimension, boolean inverse);
+node *next_node(node *last, int dimension);
 char charAt(char *ch, int index);
 void empty_trash();
 int pull_node(boolean row, int count);
 double *transform_vec(int dimension, char bytes[], struct PMAT *pm);
-void distributor(struct cipher *c, FILE *in, FILE *out, int coeff);
-void permut_cipher(struct cipher *c, FILE *in, FILE *out, int dimension);
-struct PMAT *lookup(struct cipher *c, int size);
+void distributor(cipher *c, FILE *in, FILE *out, int coeff);
+void permut_cipher(cipher *c, FILE *in, FILE *out, int dimension);
+struct PMAT *lookup(cipher *c, int size);
 
 #endif
