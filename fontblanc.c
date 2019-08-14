@@ -9,6 +9,8 @@
 #include "Dependencies/st_io.h"
 #include "Dependencies/st_to_cc.h"
 
+//todo dot product check for data preservation, a dot b = Qa dot Qb
+
 #define ENCRYPT_TAG "e_"
 #define ENCRYPT_EXT ".txt"
 #define DECRYPT_TAG "d_"
@@ -234,8 +236,8 @@ struct PMAT *gen_permut_mat(cipher *c, int dimension, boolean inverse) {
     memcpy(m->j->icc, jcc, sizeof(int)*(dimension+1));
     memcpy(m->v->acc, acc, sizeof(double)*dimension);
     if(inverse) {
-        //m = transpose(m, dimension);
-        c->inv_permut_map[dimension] = m;
+        struct PMAT *t_m = orthogonal_transpose(m);
+        c->inv_permut_map[dimension] = t_m;
     } else {
         c->permut_map[dimension] = m;
     }
@@ -328,6 +330,39 @@ double *transform_vec(int dimension, char bytes[], struct PMAT *pm) {
     clock_t transform_diff = clock() - transform_start;
     time_transformation += transform_diff;
     return result;
+}
+
+struct PMAT *orthogonal_transpose(struct PMAT *mat) {
+    int dimension = mat->dimension;
+    struct PMAT *t_m = init_permut_mat(dimension);
+    //switch row and column arrays
+    int *new_icc = mat->j->icc;
+    int *new_jcc = mat->i->icc;
+    int t_icc[dimension];
+    int t_jcc[dimension];
+    for(int i = 0; i < dimension; i++) {
+        t_jcc[new_jcc[i]] = new_jcc[i];
+        t_icc[new_jcc[i]] = new_icc[i];
+    }
+    memcpy(t_m->i->icc, t_icc, sizeof(int)*dimension);
+    memcpy(t_m->j->icc, t_jcc, sizeof(int)*(dimension+1));
+    memcpy(t_m->v->acc, mat->v->acc, sizeof(double)*dimension);
+    return t_m;
+}
+
+struct PMAT *init_permut_mat(int dimension) {
+    //initialize new matrix object
+    struct PMAT_I *mi = (struct PMAT_I *)malloc(sizeof(*mi) + sizeof(int)*dimension);
+    //size is N columns + 1 as required by cc_mv matrix multiplication
+    struct PMAT_I *mj = (struct PMAT_I *)malloc(sizeof(*mj) + sizeof(int)*(dimension+1));
+    struct PMAT_V *mv = (struct PMAT_V *)malloc(sizeof(*mv) + sizeof(double)*dimension);
+    struct PMAT *m = (struct PMAT *)malloc(sizeof(*m) + sizeof(struct PMAT_I) + sizeof(int)*dimension
+                                               + sizeof(struct PMAT_I) + sizeof(int)*(dimension+1) + sizeof(struct PMAT_V) + sizeof(double)*dimension);
+    m->dimension = dimension;
+    m->i = mi;
+    m->j = mj;
+    m->v = mv;
+    return m;
 }
 
 void distributor(cipher *c, FILE *in, FILE *out, int coeff) {

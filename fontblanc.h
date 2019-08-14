@@ -59,6 +59,8 @@ char charAt(char *ch, int index);
 void empty_trash();
 int pull_node(boolean row, int count);
 double *transform_vec(int dimension, char bytes[], struct PMAT *pm);
+struct PMAT *orthogonal_transpose(struct PMAT *mat);
+struct PMAT *init_permut_mat(int dimension);
 void distributor(cipher *c, FILE *in, FILE *out, int coeff);
 void permut_cipher(cipher *c, FILE *in, FILE *out, int dimension);
 struct PMAT *lookup(cipher *c, int size);
