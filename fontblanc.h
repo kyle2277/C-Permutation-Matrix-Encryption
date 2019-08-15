@@ -4,7 +4,7 @@
 #include "Dependencies/csparse.h"
 
 #define LOG_OUTPUT "log.txt"
-#define MAPSIZE 1024
+#define MAPSIZE 1025
 
 typedef enum { false, true } boolean;
 
@@ -14,6 +14,7 @@ struct PMAT {
     struct PMAT_I *i;
     struct PMAT_I *j;
     struct PMAT_V *v;
+    double check_vec[];
 };
 
 // matrix index structure
@@ -36,7 +37,7 @@ typedef struct {
     char *file_path;
     char *encrypt_key;
     int encrypt_key_val;
-    long bytes_remainging;
+    long bytes_remaining;
 } cipher;
 
 typedef struct node {
@@ -60,9 +61,10 @@ void empty_trash();
 int pull_node(boolean row, int count);
 double *transform_vec(int dimension, char bytes[], struct PMAT *pm);
 struct PMAT *orthogonal_transpose(struct PMAT *mat);
+int dot_product(double a[], double b[], int dimension);
 struct PMAT *init_permut_mat(int dimension);
 void distributor(cipher *c, FILE *in, FILE *out, int coeff);
 void permut_cipher(cipher *c, FILE *in, FILE *out, int dimension);
-struct PMAT *lookup(cipher *c, int size);
+struct PMAT *lookup(cipher *c, int dimension);
 
 #endif

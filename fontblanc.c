@@ -35,7 +35,8 @@ cipher create_cipher(char *file_path, char *encrypt_key, long file_length) {
     char *log_path = LOG_OUTPUT;
     cipher c = {.permut_map={}, .inv_permut_map={}, .log_path=log_path, .file_name=file_name,
             .file_path=just_path, .encrypt_key=encrypt_key, .encrypt_key_val=encrypt_key_val,
-            .bytes_remainging=bytes_remaining};
+            .bytes_remaining=bytes_remaining};
+    free(processed);
     return c;
 }
 
@@ -83,8 +84,9 @@ void fatal(char *log_path, char *message) {
     char *out = (char *)malloc(sizeof(char)*256);
     sprintf(out, "\n%s%s\n", asctime(loctime), message);
     FILE* log = fopen(log_path, "a");
-    printf("Fatal: %s\n", out);
+    printf("\nFATAL: %s\n", out);
     fwrite(out, sizeof(char), strlen(out), log);
+    free(out);
     fclose(log);
 }
 
@@ -92,16 +94,20 @@ void fatal(char *log_path, char *message) {
  * Delete a cipher structure
  */
 int close_cipher(cipher *c) {
+    //todo segfault when free file_name
     free(c->file_path);
     return 1;
 }
 
 /*
  * Separates the file path from the file name
- * Returns a pointer to the path
+ * Returns file name and file path up to the name
  */
 char **parse_f_path(char *file_path) {
+    //allocate double pointer to store returned file vals
     char **processed = (char **)malloc(sizeof(char *)*2);
+    processed[0] = (char *)malloc(sizeof(char)*256);
+    processed[1] = (char *)malloc(sizeof(char)*256);
     size_t path_len = strlen(file_path);
     char *ptr = file_path + path_len;
     int name_len;
@@ -178,17 +184,8 @@ struct PMAT *gen_permut_mat(cipher *c, int dimension, boolean inverse) {
     //create permutation matrix
     double acc[dimension];
     int icc[dimension];
-    int jcc[dimension];
-    struct PMAT_I *mi = (struct PMAT_I *)malloc(sizeof(*mi) + sizeof(int)*dimension);
-    //size is N columns + 1 as required by cc_mv matrix multiplication
-    struct PMAT_I *mj = (struct PMAT_I *)malloc(sizeof(*mj) + sizeof(int)*(dimension+1));
-    struct PMAT_V *mv = (struct PMAT_V *)malloc(sizeof(*mv) + sizeof(double)*dimension);
-    struct PMAT *m = (struct PMAT *)malloc(sizeof(*m) + sizeof(struct PMAT_I) + sizeof(int)*dimension
-            + sizeof(struct PMAT_I) + sizeof(int)*(dimension+1) + sizeof(struct PMAT_V) + sizeof(double)*dimension);
-    m->dimension = dimension;
-    m->i = mi;
-    m->j = mj;
-    m->v = mv;
+    int jcc[dimension+1];
+    struct PMAT *m = init_permut_mat(dimension);
 //    FILE *f_vals = fopen("pmat_vals.csv", "w");
     int dimension_counter = 0;
     int list_len = dimension;
@@ -220,7 +217,10 @@ struct PMAT *gen_permut_mat(cipher *c, int dimension, boolean inverse) {
         icc[j_val] = i_val;
         //column indexes
         jcc[j_val] = j_val;
+        m->check_vec[j_val] = (double)j_val;
     }
+    //todo segfault without this line????
+    jcc[dimension] = dimension;
     clock_t p_loop_diff = clock() - p_loop;
     time_p_loop += p_loop_diff;
 //    fclose(f_vals);
@@ -235,17 +235,18 @@ struct PMAT *gen_permut_mat(cipher *c, int dimension, boolean inverse) {
     memcpy(m->i->icc, icc, sizeof(int)*dimension);
     memcpy(m->j->icc, jcc, sizeof(int)*(dimension+1));
     memcpy(m->v->acc, acc, sizeof(double)*dimension);
+    struct PMAT *resultant_m;
     if(inverse) {
-        struct PMAT *t_m = orthogonal_transpose(m);
-        c->inv_permut_map[dimension] = t_m;
+        resultant_m = orthogonal_transpose(m);
+        c->inv_permut_map[dimension] = resultant_m;
     } else {
-        c->permut_map[dimension] = m;
+        resultant_m = m;
+        c->permut_map[dimension] = resultant_m;
     }
     clock_t diff_write = clock() - start_write;
     time_total_write += diff_write;
-    //todo inverse function
     //printf("created mat, %d\n", dimension);
-    return m;
+    return resultant_m;
 //    return inverse ? cs_transpose(permut_matrix, dimension) : permut_matrix;
 }
 
@@ -321,17 +322,24 @@ int pull_node(boolean row, int count) {
  * Performs the linear transformation operation on the byte vector and returns the resulting vector
  */
 double *transform_vec(int dimension, char bytes[], struct PMAT *pm) {
-    double acc[dimension];
+    double vec[dimension];
     for(int i = 0; i < dimension; i++) {
-        acc[i] = bytes[i];
+        vec[i] = bytes[i];
     }
     clock_t transform_start = clock();
-    double *result = cc_mv(dimension, dimension, dimension, pm->i->icc, pm->j->icc, pm->v->acc, acc);
+    int dot_bef = dot_product(vec, pm->check_vec, dimension);
+    double *result = cc_mv(dimension, dimension, dimension, pm->i->icc, pm->j->icc, pm->v->acc, vec);
+    double *check_result = cc_mv(dimension, dimension, dimension, pm->i->icc, pm->j->icc, pm->v->acc, pm->check_vec);
+    int dot_aft = dot_product(result, check_result, dimension);
     clock_t transform_diff = clock() - transform_start;
     time_transformation += transform_diff;
-    return result;
+    return dot_bef == dot_aft ? result : NULL;
 }
 
+/*
+ * Takes an orthogonal matrix object and transposes it (equal to the matrix inverse)
+ * Returns the resulting matrix object
+ */
 struct PMAT *orthogonal_transpose(struct PMAT *mat) {
     int dimension = mat->dimension;
     struct PMAT *t_m = init_permut_mat(dimension);
@@ -339,15 +347,25 @@ struct PMAT *orthogonal_transpose(struct PMAT *mat) {
     int *new_icc = mat->j->icc;
     int *new_jcc = mat->i->icc;
     int t_icc[dimension];
-    int t_jcc[dimension];
+    int t_jcc[dimension+1];
     for(int i = 0; i < dimension; i++) {
         t_jcc[new_jcc[i]] = new_jcc[i];
         t_icc[new_jcc[i]] = new_icc[i];
     }
+    t_jcc[dimension] = dimension;
     memcpy(t_m->i->icc, t_icc, sizeof(int)*dimension);
     memcpy(t_m->j->icc, t_jcc, sizeof(int)*(dimension+1));
     memcpy(t_m->v->acc, mat->v->acc, sizeof(double)*dimension);
+    memcpy(t_m->check_vec, mat->check_vec, sizeof(double)*dimension);
     return t_m;
+}
+
+int dot_product(double a[], double b[], int dimension) {
+    double result = 0;
+    for(int i = 0; i < dimension; i++) {
+        result += a[i] * b[i];
+    }
+    return (int) result;
 }
 
 struct PMAT *init_permut_mat(int dimension) {
@@ -357,7 +375,7 @@ struct PMAT *init_permut_mat(int dimension) {
     struct PMAT_I *mj = (struct PMAT_I *)malloc(sizeof(*mj) + sizeof(int)*(dimension+1));
     struct PMAT_V *mv = (struct PMAT_V *)malloc(sizeof(*mv) + sizeof(double)*dimension);
     struct PMAT *m = (struct PMAT *)malloc(sizeof(*m) + sizeof(struct PMAT_I) + sizeof(int)*dimension
-                                               + sizeof(struct PMAT_I) + sizeof(int)*(dimension+1) + sizeof(struct PMAT_V) + sizeof(double)*dimension);
+            + sizeof(struct PMAT_I) + sizeof(int)*(dimension+1) + sizeof(struct PMAT_V) + sizeof(double)*dimension);
     m->dimension = dimension;
     m->i = mi;
     m->j = mj;
@@ -369,7 +387,7 @@ void distributor(cipher *c, FILE *in, FILE *out, int coeff) {
     char *encrypt_map = gen_log_base_str(c, exp(1));
     //create encrypt map of length required for file instead of looping
     int map_len = (int)strlen(encrypt_map);
-    for(int map_itr = 0; c->bytes_remainging > 1024; map_itr++) {
+    for(int map_itr = 0; c->bytes_remaining > 1024; map_itr++) {
         if(map_itr == map_len) {
             map_itr = 0;
         }
@@ -377,8 +395,10 @@ void distributor(cipher *c, FILE *in, FILE *out, int coeff) {
         int tmp = (charAt(encrypt_map, map_itr) - '0') + 1;
         int dimension = 1024/tmp;
         permut_cipher(c, in, out, coeff*dimension);
+//        permut_cipher(c, in, out, coeff*1024);
     }
-    int b = (int) c->bytes_remainging;
+    //todo limits file size to max size of int in bytes, ~2GB
+    int b = (int) c->bytes_remaining;
     if(b > 0) {
         permut_cipher(c, in, out, coeff*b);
     }
@@ -393,6 +413,14 @@ void permut_cipher(cipher *c, FILE *in, FILE *out, int dimension) {
     char *data_in = (char *)malloc(sizeof(char)*dimension);
     fread(data_in, 1, (size_t)dimension, in);
     double *result = transform_vec(dimension, data_in, permutation_mat);
+    //check for data preservation error
+    if(result == NULL) {
+        char *message = (char *)malloc(sizeof(char)*256);
+        sprintf(message, "%s\n%ld%s\n%s\n", "Corruption detected in encryption.", c->bytes_remaining,
+                " unencrypted bytes remaining.", "Aborting.");
+        fatal(c->log_path, message);
+        exit(1);
+    }
     //parse result, done w/ coefficient value
     unsigned char *byte_data = (unsigned char *) calloc((size_t)dimension, sizeof(unsigned char));
     double *byte_ptr = result;
@@ -405,11 +433,11 @@ void permut_cipher(cipher *c, FILE *in, FILE *out, int dimension) {
     fwrite(byte_data, 1, (size_t)dimension, out);
     free(data_in);
     free(byte_data);
-    c->bytes_remainging -= dimension;
+    c->bytes_remaining -= dimension;
 }
 
-struct PMAT *lookup(cipher *c, int size) {
-    return size < 0 ? c->inv_permut_map[abs(size)] : c->permut_map[abs(size)];
+struct PMAT *lookup(cipher *c, int dimension) {
+    return dimension < 0 ? c->inv_permut_map[abs(dimension)] : c->permut_map[abs(dimension)];
 }
 
 
