@@ -14,7 +14,8 @@ struct PMAT {
     struct PMAT_I *i;
     struct PMAT_I *j;
     struct PMAT_V *v;
-    double check_vec[];
+    double check_vec_bef[1025];
+    double check_vec_aft[];
 };
 
 // matrix index structure
@@ -48,6 +49,7 @@ typedef struct node {
 
 int char_sum(char *s);
 int close_cipher(cipher *c);
+void purge_mat(struct PMAT *pm);
 char **parse_f_path(char *file_path);
 cipher create_cipher(char *file_path, char *encrypt_key, long file_length);
 int encrypt(cipher *c);

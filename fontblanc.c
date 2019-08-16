@@ -96,7 +96,30 @@ void fatal(char *log_path, char *message) {
 int close_cipher(cipher *c) {
     //todo segfault when free file_name
     free(c->file_path);
+    boolean n_inv;
+    boolean inv;
+    for(int i = 0; i < 1025; i++) {
+        struct PMAT *pm = c->permut_map[i];
+        struct PMAT *t_pm = c->inv_permut_map[i];
+        n_inv = pm != NULL;
+        inv = t_pm != NULL;
+        if(n_inv) {
+            purge_mat(pm);
+        } else if(inv) {
+            purge_mat(t_pm);
+        }
+    }
     return 1;
+}
+
+void purge_mat(struct PMAT *pm) {
+    memset(pm->i->icc, '\0', pm->dimension*sizeof(int));
+    memset(pm->j->icc, '\0', (pm->dimension+1)*sizeof(int));
+    memset(pm->v->acc, '\0', pm->dimension*sizeof(double));
+    memset(pm->check_vec_bef, '\0', pm->dimension*sizeof(double));
+    memset(pm->check_vec_aft, '\0', pm->dimension*sizeof(double));
+    memset(&pm->dimension, '\0', sizeof(int));
+    free(pm);
 }
 
 /*
@@ -217,7 +240,7 @@ struct PMAT *gen_permut_mat(cipher *c, int dimension, boolean inverse) {
         icc[j_val] = i_val;
         //column indexes
         jcc[j_val] = j_val;
-        m->check_vec[j_val] = (double)j_val;
+        m->check_vec_bef[j_val] = (double) j_val;
     }
     //todo segfault without this line????
     jcc[dimension] = dimension;
@@ -243,6 +266,10 @@ struct PMAT *gen_permut_mat(cipher *c, int dimension, boolean inverse) {
         resultant_m = m;
         c->permut_map[dimension] = resultant_m;
     }
+    //create vector to check integrity of data
+    double *check_vec = cc_mv(dimension, dimension, dimension, resultant_m->i->icc, resultant_m->j->icc,
+            resultant_m->v->acc, resultant_m->check_vec_bef);
+    memcpy(resultant_m->check_vec_aft, check_vec, sizeof(double)*dimension);
     clock_t diff_write = clock() - start_write;
     time_total_write += diff_write;
     //printf("created mat, %d\n", dimension);
@@ -327,10 +354,9 @@ double *transform_vec(int dimension, char bytes[], struct PMAT *pm) {
         vec[i] = bytes[i];
     }
     clock_t transform_start = clock();
-    int dot_bef = dot_product(vec, pm->check_vec, dimension);
+    int dot_bef = dot_product(vec, pm->check_vec_bef, dimension);
     double *result = cc_mv(dimension, dimension, dimension, pm->i->icc, pm->j->icc, pm->v->acc, vec);
-    double *check_result = cc_mv(dimension, dimension, dimension, pm->i->icc, pm->j->icc, pm->v->acc, pm->check_vec);
-    int dot_aft = dot_product(result, check_result, dimension);
+    int dot_aft = dot_product(result, pm->check_vec_aft, dimension);
     clock_t transform_diff = clock() - transform_start;
     time_transformation += transform_diff;
     return dot_bef == dot_aft ? result : NULL;
@@ -356,7 +382,7 @@ struct PMAT *orthogonal_transpose(struct PMAT *mat) {
     memcpy(t_m->i->icc, t_icc, sizeof(int)*dimension);
     memcpy(t_m->j->icc, t_jcc, sizeof(int)*(dimension+1));
     memcpy(t_m->v->acc, mat->v->acc, sizeof(double)*dimension);
-    memcpy(t_m->check_vec, mat->check_vec, sizeof(double)*dimension);
+    memcpy(t_m->check_vec_bef, mat->check_vec_bef, sizeof(double)*dimension);
     return t_m;
 }
 
