@@ -9,8 +9,6 @@
 #include "Dependencies/st_io.h"
 #include "Dependencies/st_to_cc.h"
 
-//todo dot product check for data preservation, a dot b = Qa dot Qb
-
 #define ENCRYPT_TAG "e_"
 #define ENCRYPT_EXT ".txt"
 #define DECRYPT_TAG "d_"
@@ -19,17 +17,17 @@ clock_t time_total_write;
 clock_t time_transformation;
 clock_t time_p_loop;
 node *i_head, *j_head;
-node *trash[2048];
+node *trash[MAX_DIMENSION*2];
 int trash_indx;
 
 /*
  * Create a cipher structure for the given file with the given encryption key
  * Returns the cipher structure
  */
-cipher create_cipher(char *file_path, char *encrypt_key, long file_length) {
+cipher create_cipher(char *file_in_path, char *encrypt_key, long file_length) {
     int encrypt_key_val = char_sum(encrypt_key);
     long bytes_remaining = file_length;
-    char **processed = parse_f_path(file_path);
+    char **processed = parse_f_path(file_in_path);
     char *file_name = processed[0];
     char *just_path = processed[1];
     char *log_path = LOG_OUTPUT;
@@ -51,7 +49,7 @@ int encrypt(cipher *c) {
     char *f_out_path = (char *)malloc(sizeof(char)*256);
     sprintf(f_out_path, "%s%s%s%s", c->file_path, ENCRYPT_TAG, c->file_name, ENCRYPT_EXT);
     FILE *out = fopen(f_out_path, "w");
-    distributor(c, in, out, 1);
+    rand_distributor(c, in, out, 1);
     printf("Time generating permutation matrices (ms): %.2lf\n", (double)time_total_gen*1000/CLOCKS_PER_SEC);
     printf("Time writing matrices to file (ms): %.2lf\n", (double)time_total_write*1000/CLOCKS_PER_SEC);
     printf("Time performing linear transformation (ms): %.2lf\n", (double)time_transformation*1000/CLOCKS_PER_SEC);
@@ -70,7 +68,7 @@ int decrypt(cipher *c) {
     char *f_out_path = (char *)malloc(sizeof(char)*256);
     sprintf(f_out_path, "%s%s%s", c->file_path, DECRYPT_TAG, c->file_name);
     FILE *out = fopen(f_out_path, "w");
-    distributor(c, in, out, -1);
+    rand_distributor(c, in, out, -1);
     free(f_in_path);
     free(f_out_path);
     fclose(in);
@@ -98,7 +96,7 @@ int close_cipher(cipher *c) {
     free(c->file_path);
     boolean n_inv;
     boolean inv;
-    for(int i = 0; i < 1025; i++) {
+    for(int i = 0; i < MAPSIZE; i++) {
         struct PMAT *pm = c->permut_map[i];
         struct PMAT *t_pm = c->inv_permut_map[i];
         n_inv = pm != NULL;
@@ -181,18 +179,7 @@ char *gen_log_base_str(cipher *c, double log_base) {
  */
 struct PMAT *gen_permut_mat(cipher *c, int dimension, boolean inverse) {
     clock_t start = clock();
-    int sequences = 1;
-    if(2*dimension > 15) {
-        sequences = (((2*dimension) - ((2*dimension)%15))/15) + 1;
-    }
-    char *linked = (char *)calloc((size_t)15*dimension, sizeof(char));
-    //create string used to choose permutation matrix
-    for(int i = 0; i < sequences; i++) {
-        //i + dimension = log base
-        char *logBaseOutput = gen_log_base_str(c, (i+dimension));
-        sprintf(linked, "%s%s", linked, logBaseOutput);
-        free(logBaseOutput);
-    }
+    char *linked = gen_linked_vals(c, dimension);
     //create linked lists used to build matrices
     i_head = (node *)malloc(sizeof(node));
     i_head->last = NULL;
@@ -409,26 +396,56 @@ struct PMAT *init_permut_mat(int dimension) {
     return m;
 }
 
-void distributor(cipher *c, FILE *in, FILE *out, int coeff) {
-    char *encrypt_map = gen_log_base_str(c, exp(1));
+void rand_distributor(cipher *c, FILE *in, FILE *out, int coeff) {
+    //FILE *dim_vals = fopen("dim_vals.csv", "w");
     //create encrypt map of length required for file instead of looping
-    int map_len = (int)strlen(encrypt_map);
-    for(int map_itr = 0; c->bytes_remaining > 1024; map_itr++) {
-        if(map_itr == map_len) {
-            map_itr = 0;
-        }
+    int approx = (int)c->bytes_remaining/MAX_DIMENSION;
+    char *linked = gen_linked_vals(c, approx);
+    int map_len = (int)strlen(linked);
+    for(int map_itr = 0; c->bytes_remaining > MAX_DIMENSION; map_itr++) {
         //todo improve dimension randomization
-        int tmp = (charAt(encrypt_map, map_itr) - '0') + 1;
-        int dimension = 1024/tmp;
+        int tmp = (charAt(linked, map_itr % map_len) - '0');
+        tmp = tmp > 0 ? tmp : tmp + 1;
+        int dimension = tmp > 1 ? MAX_DIMENSION - (MAX_DIMENSION/tmp) : MAX_DIMENSION;
+//        char *write = (char *)malloc(sizeof(char)*110);
+//        sprintf(write, "%d\n", dimension);
+//        fwrite(write, sizeof(char), strlen(write), dim_vals);
+//        free(write);
         permut_cipher(c, in, out, coeff*dimension);
-//        permut_cipher(c, in, out, coeff*1024);
     }
     //todo limits file size to max size of int in bytes, ~2GB
     int b = (int) c->bytes_remaining;
     if(b > 0) {
         permut_cipher(c, in, out, coeff*b);
     }
+    free(linked);
+//    fclose(dim_vals);
+}
+
+void locked_distributor(cipher *c, FILE *in, FILE *out, int coeff, int dimension) {
+    char *encrypt_map = gen_log_base_str(c, exp(2));
+    int map_len = (int)strlen(encrypt_map);
+    for(int map_itr = 0; c->bytes_remaining > MAX_DIMENSION; map_itr++) {
+        permut_cipher(c, in, out, coeff*MAX_DIMENSION);
+    }
     free(encrypt_map);
+}
+
+char *gen_linked_vals(cipher *c, int approx) {
+    int sequences = 1;
+    if(approx > 15) {
+        sequences = ((approx - (approx%15))/15) + 1;
+    }
+    //16 is the number of values in the log string
+    char *linked = (char *)calloc((size_t)16*sequences, sizeof(char));
+    //create string used to choose permutation matrix
+    for(int i = 0; i < sequences; i++) {
+        //i + dimension = log base
+        char *logBaseOutput = gen_log_base_str(c, (i+approx));
+        sprintf(linked, "%s%s", linked, logBaseOutput);
+        free(logBaseOutput);
+    }
+    return linked;
 }
 
 void permut_cipher(cipher *c, FILE *in, FILE *out, int dimension) {

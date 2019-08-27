@@ -4,7 +4,10 @@
 #include "Dependencies/csparse.h"
 
 #define LOG_OUTPUT "log.txt"
-#define MAPSIZE 1025
+//Increase if crashing
+#define MAPSIZE 1000
+//Changes size of largest possible matrix
+#define MAX_DIMENSION 1024
 
 typedef enum { false, true } boolean;
 
@@ -14,7 +17,7 @@ struct PMAT {
     struct PMAT_I *i;
     struct PMAT_I *j;
     struct PMAT_V *v;
-    double check_vec_bef[1025];
+    double check_vec_bef[MAX_DIMENSION];
     double check_vec_aft[];
 };
 
@@ -51,7 +54,7 @@ int char_sum(char *s);
 int close_cipher(cipher *c);
 void purge_mat(struct PMAT *pm);
 char **parse_f_path(char *file_path);
-cipher create_cipher(char *file_path, char *encrypt_key, long file_length);
+cipher create_cipher(char *file_in_path, char *encrypt_key, long file_length);
 int encrypt(cipher *c);
 int decrypt(cipher *c);
 void fatal(char *log_path, char *message);
@@ -65,7 +68,9 @@ double *transform_vec(int dimension, char bytes[], struct PMAT *pm);
 struct PMAT *orthogonal_transpose(struct PMAT *mat);
 int dot_product(double a[], double b[], int dimension);
 struct PMAT *init_permut_mat(int dimension);
-void distributor(cipher *c, FILE *in, FILE *out, int coeff);
+char *gen_linked_vals(cipher *c, int approx);
+void rand_distributor(cipher *c, FILE *in, FILE *out, int coeff);
+void locked_distributor(cipher *c, FILE *in, FILE *out, int coeff, int dimension);
 void permut_cipher(cipher *c, FILE *in, FILE *out, int dimension);
 struct PMAT *lookup(cipher *c, int dimension);
 
