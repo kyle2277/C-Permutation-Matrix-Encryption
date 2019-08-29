@@ -102,6 +102,10 @@ void read_instructions(cipher *c, int coeff) {
     }
 }
 
+/*
+ * Takes cipher object and whether encrypt or decrypt
+ * Reads entire file into the program
+ */
 unsigned char* read_intput(cipher *c, int coeff) {
     long file_len = c->file_len;
     FILE *in;
@@ -173,6 +177,9 @@ int close_cipher(cipher *c) {
     return 1;
 }
 
+/*
+ * Zero out contents of matrix
+ */
 void purge_mat(struct PMAT *pm) {
     memset(pm->i->icc, '\0', pm->dimension*sizeof(int));
     memset(pm->j->icc, '\0', (pm->dimension+1)*sizeof(int));
@@ -351,15 +358,8 @@ node *next_node(node *last, int dimension) {
     } else {
         next->last = last;
         next->number = last->number +1;
-        //next = {.next = NULL, .last = last, .number = last->number+1};
         next->next = next_node(next, dimension);
         return next;
-//        next.next = (struct node *)malloc(sizeof(struct node));
-//        next.last = (struct node *)malloc(sizeof(struct node));
-//        next.last = last;
-//        next.number = last->number + 1;
-//        next.next = next_node(next, dimension);
-
     }
 }
 
@@ -436,6 +436,10 @@ struct PMAT *orthogonal_transpose(struct PMAT *mat) {
     return t_m;
 }
 
+/*
+ * Takes two column vectors and their dimension
+ * Returns the dot product
+ */
 int dot_product(double a[], double b[], int dimension) {
     double result = 0;
     for(int i = 0; i < dimension; i++) {
@@ -444,6 +448,9 @@ int dot_product(double a[], double b[], int dimension) {
     return (int) result;
 }
 
+/*
+ * Allocate space for a matrix object
+ */
 struct PMAT *init_permut_mat(int dimension) {
     //initialize new matrix object
     struct PMAT_I *mi = (struct PMAT_I *)malloc(sizeof(*mi) + sizeof(int)*dimension);
@@ -459,6 +466,9 @@ struct PMAT *init_permut_mat(int dimension) {
     return m;
 }
 
+/*
+ * process file using pseudo-random matrix dimensions
+ */
 void rand_distributor(cipher *c, int coeff) {
     //FILE *dim_vals = fopen("dim_vals.csv", "w");
     //create encrypt map of length required for file instead of looping
@@ -484,6 +494,9 @@ void rand_distributor(cipher *c, int coeff) {
 //    fclose(dim_vals);
 }
 
+/*
+ * Process file using a fixed matrix dimension
+ */
 void fixed_distributor(cipher *c, int coeff, int dimension) {
     for(int map_itr = 0; c->bytes_remaining > dimension; map_itr++) {
         permut_cipher(c, coeff*dimension);
@@ -494,8 +507,10 @@ void fixed_distributor(cipher *c, int coeff, int dimension) {
     }
 }
 
-//Generates a string of pseudo-random values of length provided
-char *gen_linked_vals(cipher *c, int approx) {
+/*
+ * Generates a string of pseudo-random values of length provided
+ */
+ char *gen_linked_vals(cipher *c, int approx) {
     int sequences = 1;
     if(approx > 15) {
         sequences = ((approx - (approx%15))/15) + 1;
@@ -512,6 +527,9 @@ char *gen_linked_vals(cipher *c, int approx) {
     return linked;
 }
 
+/*
+ * Facilitates matrix tranformations
+ */
 void permut_cipher(cipher *c, int dimension) {
     long ref = c->bytes_processed;
     char *data = c->file_bytes;
@@ -521,8 +539,6 @@ void permut_cipher(cipher *c, int dimension) {
     struct PMAT *permutation_mat = pm ? pm : gen_permut_mat(c, dimension, inverse);
     char *data_in = (char *)malloc(sizeof(char)*dimension);
     memcpy(data_in, data+ref, (size_t)dimension);
-    //    char *data_in = (char *)malloc(sizeof(char)*dimension);
-//    fread(data_in, 1, (size_t)dimension, in);
     double *result = transform_vec(dimension, data_in, permutation_mat);
     double *ptr = result;
     unsigned char *data_result = (unsigned char *)malloc(sizeof(unsigned char)*dimension);
@@ -543,6 +559,10 @@ void permut_cipher(cipher *c, int dimension) {
     c->bytes_remaining -= dimension;
 }
 
+/*
+ * Takes matrix dimension
+ * Returns corresponding matrix object if exists
+ */
 struct PMAT *lookup(cipher *c, int dimension) {
     return dimension < 0 ? c->inv_permut_map[abs(dimension)] : c->permut_map[abs(dimension)];
 }
@@ -566,5 +586,3 @@ int *create_instruction(int fixed, int dimension) {
     }
     return instruction;
 }
-
-
