@@ -39,13 +39,16 @@ cipher create_cipher(char *file_in_path, char *encrypt_key, long file_length, in
     return c;
 }
 
-int encrypt(cipher *c) {
-    int coeff = 1; //internally denotes encryption
+/*
+ * Run the process. Takes cipher and whether tp encrypt or not
+ */
+int run(cipher *c, boolean encrypt) {
+    int coeff = encrypt ? 1 : -1;
     time_total_gen = 0;
     time_total_write = 0;
     time_transformation = 0;
     time_p_loop = 0;
-    unsigned char *file_bytes = read_intput(c, coeff);
+    unsigned char *file_bytes = read_input(c, coeff);
     c->file_bytes = file_bytes;
     read_instructions(c, coeff);
     write_output(c, coeff);
@@ -56,13 +59,32 @@ int encrypt(cipher *c) {
     return 1;
 }
 
+//DEPRECATED
+int encrypt(cipher *c) {
+    int coeff = 1; //internally denotes encryption
+    time_total_gen = 0;
+    time_total_write = 0;
+    time_transformation = 0;
+    time_p_loop = 0;
+    unsigned char *file_bytes = read_input(c, coeff);
+    c->file_bytes = file_bytes;
+    read_instructions(c, coeff);
+    write_output(c, coeff);
+    printf("Time generating permutation matrices (ms): %.2lf\n", (double)time_total_gen*1000/CLOCKS_PER_SEC);
+    printf("Time writing matrices to file (ms): %.2lf\n", (double)time_total_write*1000/CLOCKS_PER_SEC);
+    printf("Time performing linear transformation (ms): %.2lf\n", (double)time_transformation*1000/CLOCKS_PER_SEC);
+    printf("Time in node pull loop (ms): %.2lf\n", (double)time_p_loop*1000/CLOCKS_PER_SEC);
+    return 1;
+}
+
+//DEPRECATED
 int decrypt(cipher *c) {
     int coeff = -1; //internally denotes decryption
     time_total_gen = 0;
     time_total_write = 0;
     time_transformation = 0;
     time_p_loop = 0;
-    unsigned char *file_bytes = read_intput(c, coeff);
+    unsigned char *file_bytes = read_input(c, coeff);
     c->file_bytes = file_bytes;
     read_instructions(c, coeff);
     write_output(c, coeff);
@@ -106,7 +128,7 @@ void read_instructions(cipher *c, int coeff) {
  * Takes cipher object and whether encrypt or decrypt
  * Reads entire file into the program
  */
-unsigned char* read_intput(cipher *c, int coeff) {
+unsigned char* read_input(cipher *c, int coeff) {
     long file_len = c->file_len;
     FILE *in;
     char *f_in_path = (char *)malloc(sizeof(char)*256);
@@ -475,7 +497,7 @@ void rand_distributor(cipher *c, int coeff) {
     int approx = (int)c->bytes_remaining/MAX_DIMENSION;
     char *linked = gen_linked_vals(c, approx);
     int map_len = (int)strlen(linked);
-    for(int map_itr = 0; c->bytes_remaining > MAX_DIMENSION; map_itr++) {
+    for(int map_itr = 0; c->bytes_remaining >= MAX_DIMENSION; map_itr++) {
         //todo improve dimension randomization
         int tmp = (charAt(linked, map_itr % map_len) - '0');
         int dimension = tmp > 1 ? MAX_DIMENSION - (MAX_DIMENSION/tmp) : MAX_DIMENSION;
@@ -498,7 +520,7 @@ void rand_distributor(cipher *c, int coeff) {
  * Process file using a fixed matrix dimension
  */
 void fixed_distributor(cipher *c, int coeff, int dimension) {
-    for(int map_itr = 0; c->bytes_remaining > dimension; map_itr++) {
+    while(c->bytes_remaining >= dimension) {
         permut_cipher(c, coeff*dimension);
     }
     int b = (int)c->bytes_remaining;
@@ -574,14 +596,11 @@ struct PMAT *lookup(cipher *c, int dimension) {
  */
 int *create_instruction(int fixed, int dimension) {
     int *instruction = (int *)malloc(sizeof(int)*2);
-    if(fixed == 1) { //fixed dimension
+    if(fixed > 0) { //fixed dimension
         instruction[0] = fixed;
         instruction[1] = dimension;
-    } else if (fixed == 0) { //flexible dimension
-        instruction[0] = fixed;
-        instruction[1] = 0;
-    } else { //end case
-        instruction[0] = -1;
+    } else { //flexible dimension
+        instruction[0] = 0;
         instruction[1] = 0;
     }
     return instruction;
