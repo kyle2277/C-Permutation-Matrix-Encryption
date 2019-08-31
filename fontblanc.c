@@ -24,8 +24,7 @@ int trash_indx;
  * Create a cipher structure for the given file with the given encryption key
  * Returns the cipher structure
  */
-cipher create_cipher(char *file_in_path, char *encrypt_key, long file_length, int **instructions, int num_instructions) {
-    int encrypt_key_val = char_sum(encrypt_key);
+cipher create_cipher(char *file_in_path, long file_length, instruction **instructions, int num_instructions) {
     long bytes_remaining = file_length;
     char **processed = parse_f_path(file_in_path);
     char *file_name = processed[0];
@@ -33,8 +32,8 @@ cipher create_cipher(char *file_in_path, char *encrypt_key, long file_length, in
     char *log_path = LOG_OUTPUT;
     //cipher *c = (cipher *)malloc(sizeof(*c)+sizeof(int *)*len_instructions);
     cipher c = {.permut_map={}, .inv_permut_map={}, .log_path=log_path, .file_name=file_name,
-            .file_path=just_path, .encrypt_key=encrypt_key, .file_len=file_length, .encrypt_key_val=encrypt_key_val,
-            .bytes_remaining=bytes_remaining, .bytes_processed=0, .instructions=instructions, .num_instructions=num_instructions};
+            .file_path=just_path, .file_len=file_length, .bytes_remaining=bytes_remaining,
+            .bytes_processed=0, .instructions=instructions, .num_instructions=num_instructions};
     free(processed);
     return c;
 }
@@ -111,16 +110,21 @@ void read_instructions(cipher *c, int coeff) {
     }
     //iterate through instructions
     for(int i = a; i < b; i++) {
-        int *instruction = c->instructions[abs(i)];
+        instruction *cur = c->instructions[abs(i)];
         c->bytes_remaining = c->file_len;
         c->bytes_processed = 0;
-        int fixed = instruction[0];
-        int dimension = instruction[1];
-        if(fixed > 0) { //fixed dimension
+        int dimension = cur->dimension;
+        size_t key_len = strlen(cur->encrypt_key);
+        memcpy(c->encrypt_key, cur->encrypt_key, sizeof(char)*key_len);
+        memset(cur->encrypt_key, '\0', sizeof(char)*key_len);
+        c->encrypt_key_val = char_sum(c->encrypt_key);
+        if(dimension > 0) { //fixed dimension
             fixed_distributor(c, coeff, dimension);
         } else { //flexible dimension
             rand_distributor(c, coeff);
         }
+        memset(c->encrypt_key, '\0', sizeof(char)*key_len);
+        c->encrypt_key_val = 0;
     }
 }
 
@@ -594,14 +598,9 @@ struct PMAT *lookup(cipher *c, int dimension) {
  * (0 = random dimensions, >=1 = fixed dimension) and the dimension (if fixed)
  * Returns an array of instructions
  */
-int *create_instruction(int fixed, int dimension) {
-    int *instruction = (int *)malloc(sizeof(int)*2);
-    if(fixed > 0) { //fixed dimension
-        instruction[0] = fixed;
-        instruction[1] = dimension;
-    } else { //flexible dimension
-        instruction[0] = 0;
-        instruction[1] = 0;
-    }
-    return instruction;
+instruction *create_instruction(int dimension, char encrypt_key[]) {
+    instruction *i = (instruction *)malloc(sizeof(instruction) + sizeof(char)*strlen(encrypt_key));
+    i->dimension = dimension;
+    memcpy(i->encrypt_key, encrypt_key, sizeof(char)*strlen(encrypt_key));
+    return i;
 }

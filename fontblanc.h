@@ -33,19 +33,24 @@ struct PMAT_V {
     double acc[]; //compressed column values
 };
 
+typedef struct instruction {
+    int dimension;
+    char encrypt_key[];
+} instruction;
+
 typedef struct {
     struct PMAT *permut_map[MAPSIZE];
     struct PMAT *inv_permut_map[MAPSIZE];
     char *log_path;
     char *file_name;
     char *file_path;
-    char *encrypt_key;
+    char encrypt_key[1000];
     int encrypt_key_val;
     long file_len;
     long bytes_remaining;
     long bytes_processed;
     unsigned char *file_bytes;
-    int **instructions;
+    instruction **instructions;
     int num_instructions;
 } cipher;
 
@@ -55,11 +60,12 @@ typedef struct node {
     int number;
 } node;
 
+
 int char_sum(char *s);
 int close_cipher(cipher *c);
 void purge_mat(struct PMAT *pm);
 char **parse_f_path(char *file_path);
-cipher create_cipher(char *file_in_path, char *encrypt_key, long file_length, int **instructions, int num_instructions);
+cipher create_cipher(char *file_in_path, long file_length, instruction **instructions, int num_instructions);
 int run(cipher *c, boolean encrypt);
 int encrypt(cipher *c);
 int decrypt(cipher *c);
@@ -82,6 +88,6 @@ void rand_distributor(cipher *c, int coeff);
 void fixed_distributor(cipher *c, int coeff, int dimension);
 void permut_cipher(cipher *c, int dimension);
 struct PMAT *lookup(cipher *c, int dimension);
-int *create_instruction(int fixed, int dimension);
+instruction *create_instruction(int dimension, char *encryptKey);
 
 #endif
