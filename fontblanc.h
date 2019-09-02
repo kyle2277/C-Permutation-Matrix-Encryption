@@ -63,6 +63,7 @@ typedef struct node {
 
 int char_sum(char *s);
 int close_cipher(cipher *c);
+void purge_maps(cipher *c);
 void purge_mat(struct PMAT *pm);
 char **parse_f_path(char *file_path);
 cipher create_cipher(char *file_in_path, long file_length, instruction **instructions, int num_instructions);

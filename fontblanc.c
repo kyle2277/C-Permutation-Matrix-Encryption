@@ -123,6 +123,7 @@ void read_instructions(cipher *c, int coeff) {
         } else { //flexible dimension
             rand_distributor(c, coeff);
         }
+        purge_maps(c);
         memset(c->encrypt_key, '\0', sizeof(char)*key_len);
         c->encrypt_key_val = 0;
     }
@@ -177,6 +178,7 @@ void fatal(char *log_path, char *message) {
     fwrite(out, sizeof(char), strlen(out), log);
     free(out);
     fclose(log);
+    exit(1);
 }
 
 /*
@@ -187,6 +189,13 @@ int close_cipher(cipher *c) {
     free(c->file_path);
     free(c->instructions);
     free(c->file_bytes);
+    return 1;
+}
+
+/*
+ * zero out permutation matrix maps
+ */
+void purge_maps(cipher *c) {
     boolean n_inv;
     boolean inv;
     for(int i = 0; i < MAPSIZE; i++) {
@@ -196,11 +205,12 @@ int close_cipher(cipher *c) {
         inv = t_pm != NULL;
         if(n_inv) {
             purge_mat(pm);
+            c->permut_map[i] = NULL;
         } else if(inv) {
             purge_mat(t_pm);
+            c->inv_permut_map[i] = NULL;
         }
     }
-    return 1;
 }
 
 /*
