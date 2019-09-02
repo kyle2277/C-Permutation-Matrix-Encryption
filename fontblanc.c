@@ -24,7 +24,7 @@ int trash_indx;
  * Create a cipher structure for the given file with the given encryption key
  * Returns the cipher structure
  */
-cipher create_cipher(char *file_in_path, long file_length, instruction **instructions, int num_instructions) {
+cipher create_cipher(char *file_in_path, long file_length) {
     long bytes_remaining = file_length;
     char **processed = parse_f_path(file_in_path);
     char *file_name = processed[0];
@@ -33,9 +33,14 @@ cipher create_cipher(char *file_in_path, long file_length, instruction **instruc
     //cipher *c = (cipher *)malloc(sizeof(*c)+sizeof(int *)*len_instructions);
     cipher c = {.permut_map={}, .inv_permut_map={}, .log_path=log_path, .file_name=file_name,
             .file_path=just_path, .file_len=file_length, .bytes_remaining=bytes_remaining,
-            .bytes_processed=0, .instructions=instructions, .num_instructions=num_instructions};
+            .bytes_processed=0, .instructions=NULL, .num_instructions=0};
     free(processed);
     return c;
+}
+
+void set_instructions(cipher *c, instruction **instructions, int num_instructions) {
+    c->instructions = instructions;
+    c->num_instructions = num_instructions;
 }
 
 /*
@@ -99,6 +104,9 @@ int decrypt(cipher *c) {
  */
 void read_instructions(cipher *c, int coeff) {
     int num_instructions = c->num_instructions;
+    if(num_instructions == 0) {
+        fatal(LOG_OUTPUT, "No instructions found.");
+    }
     int a;
     int b;
     if(coeff > 0) { //encrypt, read instructions forwards
@@ -242,7 +250,7 @@ char **parse_f_path(char *file_path) {
         ptr--;
     }
     char *f_name = ptr;
-    printf("File name: %s\n", f_name);
+    //printf("File name: %s\n", f_name);
     size_t keep = path_len - name_len;
     char *just_path = (char *)malloc(sizeof(char)*keep+1);
     strncpy(just_path, file_path, keep);
@@ -609,8 +617,8 @@ struct PMAT *lookup(cipher *c, int dimension) {
  * Returns an array of instructions
  */
 instruction *create_instruction(int dimension, char encrypt_key[]) {
-    instruction *i = (instruction *)malloc(sizeof(instruction) + sizeof(char)*strlen(encrypt_key));
+    instruction *i = (instruction *)malloc(sizeof(instruction) + sizeof(char)*(strlen(encrypt_key)+1));
     i->dimension = dimension;
-    memcpy(i->encrypt_key, encrypt_key, sizeof(char)*strlen(encrypt_key));
+    memcpy(i->encrypt_key, encrypt_key, sizeof(char)*(strlen(encrypt_key)+1));
     return i;
 }
