@@ -520,7 +520,6 @@ void rand_distributor(cipher *c, int coeff) {
     char *linked = gen_linked_vals(c, approx);
     int map_len = (int)strlen(linked);
     for(int map_itr = 0; c->bytes_remaining >= MAX_DIMENSION; map_itr++) {
-        //todo improve dimension randomization
         int tmp = (charAt(linked, map_itr % map_len) - '0');
         int dimension = tmp > 1 ? MAX_DIMENSION - (MAX_DIMENSION/tmp) : MAX_DIMENSION;
 //        char *write = (char *)malloc(sizeof(char)*110);
