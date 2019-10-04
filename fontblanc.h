@@ -8,6 +8,9 @@
 #define MAPSIZE 1025
 //Changes size of largest possible matrix
 #define MAX_DIMENSION 1024
+#define ENCRYPT_TAG "e_"
+#define ENCRYPT_EXT ".txt"
+#define DECRYPT_TAG "d_"
 
 typedef enum { false, true } boolean;
 
@@ -66,7 +69,8 @@ int close_cipher(cipher *c);
 void purge_maps(cipher *c);
 void purge_mat(struct PMAT *pm);
 char **parse_f_path(char *file_path);
-cipher create_cipher(char *file_in_path, long file_length);
+cipher create_cipher(char *file_name, char *just_path, long file_length);
+long get_f_len(char *file_path);
 void set_instructions(cipher *c, instruction **instructions, int num_instructions);
 int run(cipher *c, boolean encrypt);
 int encrypt(cipher *c);
@@ -81,7 +85,7 @@ node *next_node(node *last, int dimension);
 char charAt(char *ch, int index);
 void empty_trash();
 int pull_node(boolean row, int count);
-double *transform_vec(int dimension, char bytes[], struct PMAT *pm);
+double *transform_vec(int dimension, unsigned char bytes[], struct PMAT *pm);
 struct PMAT *orthogonal_transpose(struct PMAT *mat);
 int dot_product(double a[], double b[], int dimension);
 struct PMAT *init_permut_mat(int dimension);

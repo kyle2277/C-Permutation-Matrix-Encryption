@@ -24,17 +24,11 @@ int trash_indx;
  * Create a cipher structure for the given file with the given encryption key
  * Returns the cipher structure
  */
-cipher create_cipher(char *file_in_path, long file_length) {
-    long bytes_remaining = file_length;
-    char **processed = parse_f_path(file_in_path);
-    char *file_name = processed[0];
-    char *just_path = processed[1];
-    char *log_path = LOG_OUTPUT;
+cipher create_cipher(char *file_name, char *just_path, long file_length) {
     //cipher *c = (cipher *)malloc(sizeof(*c)+sizeof(int *)*len_instructions);
-    cipher c = {.permut_map={}, .inv_permut_map={}, .log_path=log_path, .file_name=file_name,
-            .file_path=just_path, .file_len=file_length, .bytes_remaining=bytes_remaining,
+    cipher c = {.permut_map={}, .inv_permut_map={}, .log_path=LOG_OUTPUT, .file_name=file_name,
+            .file_path=just_path, .file_len=file_length, .bytes_remaining=file_length,
             .bytes_processed=0, .instructions=NULL, .num_instructions=0};
-    free(processed);
     return c;
 }
 
@@ -121,7 +115,8 @@ void read_instructions(cipher *c, int coeff) {
         instruction *cur = c->instructions[abs(i)];
         c->bytes_remaining = c->file_len;
         c->bytes_processed = 0;
-        int dimension = cur->dimension;
+        //FIXED: dimension cannot be larger than max dimension
+        int dimension = cur->dimension > MAX_DIMENSION ? MAX_DIMENSION : cur->dimension;
         size_t key_len = strlen(cur->encrypt_key);
         memcpy(c->encrypt_key, cur->encrypt_key, sizeof(char)*key_len);
         memset(cur->encrypt_key, '\0', sizeof(char)*key_len);
@@ -259,6 +254,20 @@ char **parse_f_path(char *file_path) {
     return processed;
 }
 
+long get_f_len(char *file_path) {
+    FILE *f;
+    if(!(f = fopen(file_path, "r"))) {
+        char *message = "File not found.";
+        fatal(LOG_OUTPUT, message);
+        exit(0);
+    }
+    fseek(f, 0, SEEK_END);
+    long file_len = ftell(f);
+    //printf("File length: %ld\n", file_len);
+    fseek(f, 0, SEEK_SET);
+    return file_len;
+}
+
 /*
  * Returns the sum of the char values of a char array
  */
@@ -375,7 +384,6 @@ struct PMAT *gen_permut_mat(cipher *c, int dimension, boolean inverse) {
     time_total_write += diff_write;
     //printf("created mat, %d\n", dimension);
     return resultant_m;
-//    return inverse ? cs_transpose(permut_matrix, dimension) : permut_matrix;
 }
 
 char charAt(char *ch, int index) {
@@ -442,7 +450,7 @@ int pull_node(boolean row, int count) {
  * Takes the matrix dimension, a list of bytes from the file and relevant permutation matrix
  * Performs the linear transformation operation on the byte vector and returns the resulting vector
  */
-double *transform_vec(int dimension, char bytes[], struct PMAT *pm) {
+double *transform_vec(int dimension, unsigned char bytes[], struct PMAT *pm) {
     double vec[dimension];
     for(int i = 0; i < dimension; i++) {
         vec[i] = bytes[i];
@@ -516,19 +524,19 @@ struct PMAT *init_permut_mat(int dimension) {
 void rand_distributor(cipher *c, int coeff) {
     //FILE *dim_vals = fopen("dim_vals.csv", "w");
     //create encrypt map of length required for file instead of looping
-    int approx = (int)c->bytes_remaining/MAX_DIMENSION;
+    //todo limits file size to max size of unsigned int in bytes, ~4GB
+    unsigned int approx = (unsigned int)c->bytes_remaining/MAX_DIMENSION;
     char *linked = gen_linked_vals(c, approx);
     int map_len = (int)strlen(linked);
     for(int map_itr = 0; c->bytes_remaining >= MAX_DIMENSION; map_itr++) {
         int tmp = (charAt(linked, map_itr % map_len) - '0');
-        int dimension = tmp > 1 ? MAX_DIMENSION - (MAX_DIMENSION/tmp) : MAX_DIMENSION;
+        int dimension = tmp > 1 ? MAX_DIMENSION - (MAX_DIMENSION / tmp) : MAX_DIMENSION;
 //        char *write = (char *)malloc(sizeof(char)*110);
 //        sprintf(write, "%d\n", dimension);
 //        fwrite(write, sizeof(char), strlen(write), dim_vals);
 //        free(write);
-        permut_cipher(c, coeff*dimension);
+        permut_cipher(c, coeff * dimension);
     }
-    //todo limits file size to max size of int in bytes, ~2GB
     int b = (int) c->bytes_remaining;
     if(b > 0) {
         permut_cipher(c, coeff*b);
@@ -575,12 +583,12 @@ void fixed_distributor(cipher *c, int coeff, int dimension) {
  */
 void permut_cipher(cipher *c, int dimension) {
     long ref = c->bytes_processed;
-    char *data = c->file_bytes;
+    unsigned char *data = c->file_bytes;
     struct PMAT *pm = lookup(c, dimension);
     boolean inverse = dimension < 0;
     dimension = abs(dimension);
     struct PMAT *permutation_mat = pm ? pm : gen_permut_mat(c, dimension, inverse);
-    char *data_in = (char *)malloc(sizeof(char)*dimension);
+    unsigned char *data_in = (unsigned char *)malloc(sizeof(unsigned char)*dimension);
     memcpy(data_in, data+ref, (size_t)dimension);
     double *result = transform_vec(dimension, data_in, permutation_mat);
     double *ptr = result;
