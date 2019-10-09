@@ -64,7 +64,7 @@ typedef struct node {
 } node;
 
 
-int char_sum(char *s);
+int key_sum(char *s);
 int close_cipher(cipher *c);
 void purge_maps(cipher *c);
 void purge_mat(struct PMAT *pm);

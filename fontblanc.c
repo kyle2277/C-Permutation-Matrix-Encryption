@@ -120,7 +120,7 @@ void read_instructions(cipher *c, int coeff) {
         size_t key_len = strlen(cur->encrypt_key);
         memcpy(c->encrypt_key, cur->encrypt_key, sizeof(char)*key_len);
         memset(cur->encrypt_key, '\0', sizeof(char)*key_len);
-        c->encrypt_key_val = char_sum(c->encrypt_key);
+        c->encrypt_key_val = key_sum(c->encrypt_key);
         if(dimension > 0) { //fixed dimension
             fixed_distributor(c, coeff, dimension);
         } else { //flexible dimension
@@ -269,13 +269,16 @@ long get_f_len(char *file_path) {
 }
 
 /*
- * Returns the sum of the char values of a char array
+ * Returns a pseudo-random number from the string input
  */
-int char_sum(char *s) {
-    int sum;
-    for(sum = 0; *s != '\0'; s++) {
-        sum += *s;
+int key_sum(char *s) {
+    int sum = 0;
+    for(int i = 0; *(s+1) != '\0'; s++, i++) {
+        //subtract letter from the next and multiply by 2^i
+        int add = (*s+*(s+1))<<i;
+        sum = add-sum;
     }
+    printf("%d\n", sum);
     return sum;
 }
 
@@ -286,13 +289,14 @@ char *gen_log_base_str(cipher *c, double log_base) {
     double output = log(c->encrypt_key_val)/log(log_base);
     char *log_base_str = (char *)calloc(64, sizeof(char));
     sprintf(log_base_str, "%.15lf", output);
+    //gets rid of everything before the decimal
     while(*log_base_str != '.') {
         log_base_str++;
     }
     log_base_str++;
     char *final_output = (char *)malloc(sizeof(char)*strlen(log_base_str));
     strcpy(final_output, log_base_str);
-//    printf("%s\n", log_base_str);
+    printf("%s\n", log_base_str);
     return final_output;
 }
 
@@ -301,6 +305,7 @@ char *gen_log_base_str(cipher *c, double log_base) {
  * Generates unique n-dimensional permutation matrices from the encryption key
  */
 struct PMAT *gen_permut_mat(cipher *c, int dimension, boolean inverse) {
+    printf("%s\n", "gen mat");
     clock_t start = clock();
     char *linked = gen_linked_vals(c, 2*dimension);
     //create linked lists used to build matrices
