@@ -9,7 +9,7 @@
 //Changes size of largest possible matrix
 #define MAX_DIMENSION 1024
 #define ENCRYPT_TAG "e_"
-#define ENCRYPT_EXT ".txt"
+#define ENCRYPT_EXT ".fbz"
 #define DECRYPT_TAG "d_"
 
 typedef enum { false, true } boolean;

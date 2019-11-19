@@ -140,11 +140,7 @@ unsigned char* read_input(cipher *c, int coeff) {
     long file_len = c->file_len;
     FILE *in;
     char *f_in_path = (char *)malloc(sizeof(char)*256);
-    if(coeff > 0) { //encrypt
-        sprintf(f_in_path, "%s%s", c->file_path, c->file_name);
-    } else { //decrypt
-        sprintf(f_in_path, "%s%s%s%s", c->file_path, ENCRYPT_TAG, c->file_name, ENCRYPT_EXT);
-    }
+    sprintf(f_in_path, "%s%s", c->file_path, c->file_name);
     in = fopen(f_in_path, "r");
     unsigned char *file_bytes = (unsigned char *)malloc(sizeof(unsigned char)*file_len);
     fread(file_bytes, 1, (size_t)file_len, in);
