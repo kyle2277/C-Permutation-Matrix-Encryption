@@ -10,8 +10,9 @@
 #include "Dependencies/st_to_cc.h"
 
 #define ENCRYPT_TAG "e_"
-#define ENCRYPT_EXT ".txt"
-#define DECRYPT_TAG "d_"
+#define ENCRYPT_EXT ".fbz"
+#define DECRYPT_TAG ""
+#define FILENAME "data.csv"
 clock_t time_total_gen;
 clock_t time_total_write;
 clock_t time_transformation;
@@ -19,6 +20,7 @@ clock_t time_p_loop;
 node *i_head, *j_head;
 node *trash[MAX_DIMENSION*2];
 int trash_indx;
+FILE *file;
 
 /*
  * Create a cipher structure for the given file with the given encryption key
@@ -29,7 +31,9 @@ cipher create_cipher(char *file_name, char *just_path, long file_length) {
     cipher c = {.permut_map={}, .inv_permut_map={}, .log_path=LOG_OUTPUT, .file_name=file_name,
             .file_path=just_path, .file_len=file_length, .bytes_remaining=file_length,
             .bytes_processed=0, .instructions=NULL, .num_instructions=0};
+    file = fopen(FILENAME, "w");
     return c;
+
 }
 
 void set_instructions(cipher *c, instruction **instructions, int num_instructions) {
@@ -54,6 +58,7 @@ int run(cipher *c, boolean encrypt) {
     printf("Time writing matrices to file (ms): %.2lf\n", (double)time_total_write*1000/CLOCKS_PER_SEC);
     printf("Time performing linear transformation (ms): %.2lf\n", (double)time_transformation*1000/CLOCKS_PER_SEC);
     printf("Time in node pull loop (ms): %.2lf\n", (double)time_p_loop*1000/CLOCKS_PER_SEC);
+    fclose(file);
     return 1;
 }
 
@@ -140,7 +145,11 @@ unsigned char* read_input(cipher *c, int coeff) {
     long file_len = c->file_len;
     FILE *in;
     char *f_in_path = (char *)malloc(sizeof(char)*256);
-    sprintf(f_in_path, "%s%s", c->file_path, c->file_name);
+    if(coeff > 0) { //encrypt
+        sprintf(f_in_path, "%s%s", c->file_path, c->file_name);
+    } else { //decrypt
+        sprintf(f_in_path, "%s%s%s%s", c->file_path, ENCRYPT_TAG, c->file_name, ENCRYPT_EXT);
+    }
     in = fopen(f_in_path, "r");
     unsigned char *file_bytes = (unsigned char *)malloc(sizeof(unsigned char)*file_len);
     fread(file_bytes, 1, (size_t)file_len, in);
@@ -284,15 +293,15 @@ int key_sum(char *s) {
 char *gen_log_base_str(cipher *c, double log_base) {
     double output = log(c->encrypt_key_val)/log(log_base);
     char *log_base_str = (char *)calloc(64, sizeof(char));
-    sprintf(log_base_str, "%.15lf", output);
+    sprintf(log_base_str, "%.16lf", output);
     //gets rid of everything before the decimal
     while(*log_base_str != '.') {
         log_base_str++;
     }
     log_base_str++;
-    char *final_output = (char *)malloc(sizeof(char)*strlen(log_base_str));
-    strcpy(final_output, log_base_str);
-    printf("%s\n", log_base_str);
+    char *final_output = (char *)malloc(sizeof(char)*16);
+    strncpy(final_output, log_base_str, (size_t)15);
+    printf("%s%s\n", "log string: ", final_output);
     return final_output;
 }
 
@@ -327,7 +336,7 @@ struct PMAT *gen_permut_mat(cipher *c, int dimension, boolean inverse) {
     int i_val;
     int j_val;
     trash_indx = 0;
-    for(int k = 0; k < 2*dimension; k+=2) {
+    for(int k = 0; k < 2*dimension; k++) {
         acc[dimension_counter] = 1.0;
         if(list_len == 1) {
             i_val = i_head->number;
@@ -336,13 +345,14 @@ struct PMAT *gen_permut_mat(cipher *c, int dimension, boolean inverse) {
             int row = (charAt(linked, k)-'0');
             row = ((row+1) * dimension) % list_len;
             i_val = pull_node(true, row);
-            int column = (charAt(linked, k + 1)-'0');
+            k++;
+            int column = (charAt(linked, k)-'0');
             column = ((column+1) * dimension) % list_len;
             j_val = pull_node(false, column);
-//            char *write = (char *)malloc(sizeof(char)*120);
-//            sprintf(write, "%d,%d\n", i_val, j_val);
-//            fwrite(write, sizeof(char), strlen(write), f_vals);
-//            free(write);
+            char *write = (char *)malloc(sizeof(char)*120);
+            sprintf(write, "%d,%d\n", i_val, j_val);
+            fwrite(write, sizeof(char), strlen(write), file);
+            free(write);
             dimension_counter++;
             list_len--;
         }
@@ -423,7 +433,7 @@ node *next_node(node *last, int dimension) {
  */
 int pull_node(boolean row, int count) {
     node *cur = row ? i_head : j_head;
-    for(int i = count; i > 1; i--) {
+    for(int i = 0; i < count; ++i) {
         cur = cur->next;
     }
     int num = cur->number;
@@ -570,7 +580,7 @@ void fixed_distributor(cipher *c, int coeff, int dimension) {
     //16 is the number of values in the log string
     char *linked = (char *)calloc((size_t)16*sequences, sizeof(char));
     //create string used to choose permutation matrix
-    for(int i = 0; i < sequences; i++) {
+    for(int i = 2; i <= sequences+1; i++) {
         //i + dimension = log base
         char *logBaseOutput = gen_log_base_str(c, (i+approx));
         sprintf(linked, "%s%s", linked, logBaseOutput);

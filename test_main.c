@@ -121,7 +121,13 @@ int main(int args, char *argv[]) {
     char *file_name = processed[0];
     char *just_path = processed[1];
     long file_len;
-    file_len = get_f_len(absolute_path);
+    if(e) { //encrypt
+        file_len = get_f_len(absolute_path);
+    } else { //decrypt
+        char *full_path = (char *)malloc(sizeof(char)*256);
+        sprintf(full_path, "%s%s%s%s", just_path, ENCRYPT_TAG, file_name, ENCRYPT_EXT);
+        file_len = get_f_len(full_path);
+    }
     cipher c = create_cipher(file_name, just_path, file_len);
     free(processed);
     //app welcome
