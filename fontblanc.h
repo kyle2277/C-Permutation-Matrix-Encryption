@@ -10,7 +10,7 @@
 #define MAX_DIMENSION 1024
 #define ENCRYPT_TAG "e_"
 #define ENCRYPT_EXT ".fbz"
-#define DECRYPT_TAG "d_"
+#define DECRYPT_TAG ""
 
 typedef enum { false, true } boolean;
 
@@ -73,8 +73,6 @@ cipher create_cipher(char *file_name, char *just_path, long file_length);
 long get_f_len(char *file_path);
 void set_instructions(cipher *c, instruction **instructions, int num_instructions);
 int run(cipher *c, boolean encrypt);
-int encrypt(cipher *c);
-int decrypt(cipher *c);
 void read_instructions(cipher *c, int encrypt);
 unsigned char* read_input(cipher *c, int coeff);
 void write_output(cipher *c, int coeff);
