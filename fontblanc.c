@@ -7,7 +7,6 @@
 #include <time.h>
 #include "fontblanc.h"
 #include "Dependencies/csparse.h"
-#include "Dependencies/st_io.h"
 #include "Dependencies/st_to_cc.h"
 
 clock_t time_total_gen;

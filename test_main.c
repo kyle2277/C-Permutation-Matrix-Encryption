@@ -9,7 +9,6 @@
 #include <string.h>
 #include <time.h>
 #include "Dependencies/csparse.h"
-#include "Dependencies/st_io.h"
 
 #define BUFFER 255
 #define MAX_INSTRUCTIONS 10
