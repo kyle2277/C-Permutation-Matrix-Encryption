@@ -67,7 +67,7 @@ int parse_instruction(char command[], instruction **instructions, int num_instru
     }
     char *fixed = args[1];
     int dimension = (int)strtol(args[2], (char **)NULL, 10);
-    char *encrypt_key = args[3];\
+    char *encrypt_key = args[3];
     // error checking
     if((strlen(encrypt_key) < 5) || strlen(encrypt_key) > 20) {
         // return error
@@ -124,6 +124,7 @@ int main(int args, char *argv[]) {
         file_len = get_f_len(absolute_path);
     } else { //decrypt
         char *full_path = (char *)malloc(sizeof(char)*256);
+        // todo remove encrypt tag
         sprintf(full_path, "%s%s%s%s", just_path, ENCRYPT_TAG, file_name, ENCRYPT_EXT);
         file_len = get_f_len(full_path);
     }

@@ -15,6 +15,7 @@ clock_t time_transformation;
 clock_t time_p_loop;
 node *i_head, *j_head;
 node *trash[MAX_DIMENSION*2];
+//FILE *debug;
 int trash_indx;
 
 /*
@@ -25,6 +26,8 @@ cipher create_cipher(char *file_name, char *just_path, long file_length) {
     cipher c = {.permut_map={}, .inv_permut_map={}, .log_path=LOG_OUTPUT, .file_name=file_name,
             .file_path=just_path, .file_len=file_length, .bytes_remaining=file_length,
             .bytes_processed=0, .instructions=NULL, .num_instructions=0};
+    // DEBUG OUTPUT
+//    debug = fopen("FB_WO_debug.txt", "a");
     return c;
 }
 
@@ -67,7 +70,8 @@ void read_instructions(cipher *c, int coeff) {
         a = 0;
         b = num_instructions;
     } else { //coeff < 0, decrypt, read instructions backwards
-        a = -1 * (num_instructions-1);
+        // todo num_instructions & b=0
+    	a = -1 * (num_instructions-1);
         b = 1;
     }
     //iterate through instructions
@@ -86,6 +90,7 @@ void read_instructions(cipher *c, int coeff) {
         } else { //flexible dimension
             rand_distributor(c, coeff);
         }
+        // todo move outside of instruction for loop?
         purge_maps(c);
         memset(c->encrypt_key, '\0', sizeof(char)*key_len);
         c->encrypt_key_val = 0;
@@ -128,6 +133,8 @@ void write_output(cipher *c, int coeff) {
     fwrite(c->file_bytes, sizeof(unsigned char), (size_t)file_len, out);
     free(f_out_path);
     fclose(out);
+    // DEBUG OUTPUT
+//    fclose(debug);
 }
 
 void fatal(char *log_path, char *message) {
@@ -182,8 +189,8 @@ void purge_mat(struct PMAT *pm) {
     memset(pm->i->icc, '\0', pm->dimension*sizeof(int));
     memset(pm->j->icc, '\0', (pm->dimension+1)*sizeof(int));
     memset(pm->v->acc, '\0', pm->dimension*sizeof(double));
-    memset(pm->check_vec_bef, '\0', pm->dimension*sizeof(double));
-    memset(pm->check_vec_aft, '\0', pm->dimension*sizeof(double));
+    memset(pm->check_vec_bef, '\0', MAX_DIMENSION*sizeof(double));
+    memset(pm->check_vec_aft, '\0', MAX_DIMENSION*sizeof(double));
     memset(&pm->dimension, '\0', sizeof(int));
     free(pm->i);
     free(pm->j);
@@ -244,7 +251,12 @@ int key_sum(char *s) {
         sum = add-sum;
     }
     printf("%d\n", sum);
+    // DEBUG OUTPUT
+//    char *debug_out = (char *)malloc(sizeof(char)*256);
+//    sprintf(debug_out, "%d\n", sum);
+//    fwrite(debug_out, sizeof(char), strlen(debug_out), debug);
     return sum;
+
 }
 
 /*
@@ -262,6 +274,10 @@ char *gen_log_base_str(cipher *c, double log_base) {
     ch++;
     char *final_output = (char *)calloc(32, sizeof(char));
     strncpy(final_output, ch, (size_t)15);
+    // DEBUG OUTPUT
+//    char *write_debug = (char *)malloc(sizeof(char)*32);
+//    sprintf(write_debug, "%s\n", final_output);
+//    fwrite(write_debug, sizeof(char), strlen(write_debug), debug);
     free(log_base_str);
     return final_output;
 }
@@ -300,11 +316,11 @@ struct PMAT *gen_permut_mat(cipher *c, int dimension, boolean inverse) {
             i_val = i_head->number;
             j_val = j_head->number;
         } else {
-            int row_orig = (charAt(linked, k)-'0');
-            int row = ((row_orig+1) * dimension) % list_len;
+            int row = (charAt(linked, k)-'0');
+            row = ((row+1) * dimension) % list_len;
             i_val = pull_node(true, row);
-            int column_orig = (charAt(linked, k+1)-'0');
-            int column = ((column_orig+1) * dimension) % list_len;
+            int column = (charAt(linked, k+1)-'0');
+            column = ((column+1) * dimension) % list_len;
             j_val = pull_node(false, column);
             dimension_counter++;
             list_len--;
@@ -469,11 +485,11 @@ int dot_product(double a[], double b[], int dimension) {
  */
 struct PMAT *init_permut_mat(int dimension) {
     //initialize new matrix object
-    struct PMAT_I *mi = (struct PMAT_I *)malloc(sizeof(*mi) + sizeof(int)*(dimension+10));
+    struct PMAT_I *mi = (struct PMAT_I *)malloc(sizeof(*mi) + sizeof(int)*(dimension));
     //size is N columns + 1 as required by cc_mv matrix multiplication
-    struct PMAT_I *mj = (struct PMAT_I *)malloc(sizeof(*mj) + sizeof(int)*(dimension + 10));
-    struct PMAT_V *mv = (struct PMAT_V *)malloc(sizeof(*mv) + sizeof(double)*(dimension+10));
-    struct PMAT *m = (struct PMAT *)malloc(sizeof(*m) + sizeof(double)*dimension);
+    struct PMAT_I *mj = (struct PMAT_I *)malloc(sizeof(*mj) + sizeof(int)*(dimension + 1));
+    struct PMAT_V *mv = (struct PMAT_V *)malloc(sizeof(*mv) + sizeof(double)*(dimension));
+    struct PMAT *m = (struct PMAT *)malloc(sizeof(*m));
     m->dimension = dimension;
     m->i = mi;
     m->j = mj;
@@ -551,19 +567,19 @@ void permut_cipher(cipher *c, int dimension) {
     unsigned char *data_in = (unsigned char *)calloc((size_t)dimension + 1, sizeof(unsigned char));
     memcpy(data_in, data+ref, (size_t)sizeof(unsigned char)*dimension);
     double *result = transform_vec(dimension, data_in, permutation_mat);
+	//check for data preservation error
+	if(result == NULL) {
+		char *message = (char *)malloc(sizeof(char)*256);
+		sprintf(message, "%s\n%ld%s\n%s\n", "Corruption detected in encryption.", c->bytes_remaining,
+				" unencrypted bytes remaining.", "Aborting.");
+		fatal(c->log_path, message);
+		exit(1);
+	}
     double *ptr = result;
     unsigned char *data_result = (unsigned char *)realloc(data_in, sizeof(unsigned char)*(dimension + 1));
     memset(data_result, '\0', (size_t)dimension + 1);
     for(int i = 0; i < dimension; i++, ptr++) {
         data_result[i] = (unsigned char)*ptr;
-    }
-    //check for data preservation error
-    if(result == NULL) {
-        char *message = (char *)malloc(sizeof(char)*256);
-        sprintf(message, "%s\n%ld%s\n%s\n", "Corruption detected in encryption.", c->bytes_remaining,
-                " unencrypted bytes remaining.", "Aborting.");
-        fatal(c->log_path, message);
-        exit(1);
     }
     memcpy(data+ref, data_result, (size_t)dimension);
     free(data_result);
