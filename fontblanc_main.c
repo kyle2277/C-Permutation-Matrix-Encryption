@@ -166,9 +166,11 @@ int instruction_input_loop(instruction **instructions, int num_instructions) {
   char **argv = (char **)malloc(sizeof(char *) * 32);
   // set first value of argv NULL as placeholder for cwd
   argv[0] = NULL;
-  printf("Enter an instruction:\n");
+  printf("Enter an instruction using options \"-k\" \"-D\" \"-s\":\n");
   fgets(input, BUFFER, stdin);
   while(strcmp(input, "done\n") != 0) {
+    // split input string by spaces
+    remove_newline(input);
     char *token = strtok(input, " ");
     while(token != NULL) {
       argv[argc] = token;
@@ -187,9 +189,9 @@ int instruction_input_loop(instruction **instructions, int num_instructions) {
       instructions[num_instructions] = create_instruction(com->dimension, com->encrypt_key, com->integrity_check);
       num_instructions += 1;
       memset(com->encrypt_key, '\0', strlen(com->encrypt_key));
+      printf("Enter an instruction:\n");
     }
     free(com);
-    printf("Enter an instruction:\n");
     fgets(input, BUFFER, stdin);
   }
   free(input);
@@ -209,7 +211,8 @@ int main(int argc, char **argv) {
   boolean interactive_mode = false;
   instruction **instructions = (instruction **)malloc(sizeof(instruction *) * MAX_INSTRUCTIONS);
   long file_len = get_f_len(absolute_path);
-
+  printf("File name: %s\n", file_name);
+  printf("File size: %ld bytes\n\n", file_len);
   command *com = (command *)malloc(sizeof(command));
   int com_status = read_command(com, argc, argv);
   if(com_status != 0) {

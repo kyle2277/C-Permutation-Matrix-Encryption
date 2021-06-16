@@ -647,8 +647,6 @@ void print_instruction(cipher *c, int instruction_index, boolean encrypt) {
   }
   instruction * ins = c->instructions[instruction_index];
   printf("| Instruction #%d |\n", instruction_index + 1);
-  printf("File name: %s\n", c->file_name);
-  printf("File size: %ld\n", c->file_len);
   printf("Mode: %s\n", encrypt ? "encrypt" : "decrypt");
   printf("Key: %s\n", ins->encrypt_key);
   printf("Matrix dimension: ");
