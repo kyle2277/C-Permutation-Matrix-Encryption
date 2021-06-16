@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include "Dependencies/csparse.h"
 
-#define LOG_OUTPUT "log.txt"
+#define LOG_OUTPUT "fontblanc_log.txt"
 //Increase if crashing ***MUST BE HIGHER THAN MAX DIMENSION***
 #define MAPSIZE 1025
 //Changes size of largest possible matrix
@@ -11,6 +11,8 @@
 #define ENCRYPT_TAG "e_"
 #define ENCRYPT_EXT ".fbz"
 #define DECRYPT_TAG ""
+#define BUFFER 256
+#define MAX_INSTRUCTIONS 10
 
 typedef enum { false, true } boolean;
 

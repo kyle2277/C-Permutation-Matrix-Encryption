@@ -104,7 +104,7 @@ void read_instructions(cipher *c, int coeff) {
 unsigned char* read_input(cipher *c, int coeff) {
     long file_len = c->file_len;
     FILE *in;
-    char *f_in_path = (char *)malloc(sizeof(char)*256);
+    char *f_in_path = (char *)malloc(sizeof(char) * BUFFER);
     if(coeff > 0) { //encrypt
         sprintf(f_in_path, "%s%s", c->file_path, c->file_name);
     } else { //decrypt
@@ -122,7 +122,7 @@ unsigned char* read_input(cipher *c, int coeff) {
  * Writes encrypted/decrypted data to file
  */
 void write_output(cipher *c, int coeff) {
-    char *f_out_path = (char *)malloc(sizeof(char)*256);
+    char *f_out_path = (char *)malloc(sizeof(char)*BUFFER);
     if(coeff > 0) { //encrypt
         sprintf(f_out_path, "%s%s%s%s", c->file_path, ENCRYPT_TAG, c->file_name, ENCRYPT_EXT);
     } else { //decrypt
@@ -140,14 +140,14 @@ void write_output(cipher *c, int coeff) {
 void fatal(char *log_path, char *message) {
     time_t curtime = time(NULL);
     struct tm *loctime = localtime(&curtime);
-    char *out = (char *)malloc(sizeof(char)*256);
-    sprintf(out, "\n%s%s\n", asctime(loctime), message);
+    char out[BUFFER];
+    snprintf(out, BUFFER, "\n%s%s\n", asctime(loctime), message);
     FILE* log = fopen(log_path, "a");
     printf("\nFATAL: %s\n", out);
     fwrite(out, sizeof(char), strlen(out), log);
     free(out);
     fclose(log);
-    exit(1);
+    exit(-1);
 }
 
 /*
@@ -203,23 +203,19 @@ void purge_mat(struct PMAT *pm) {
  * Returns file name and file path up to the name
  */
 char **parse_f_path(char *file_path) {
-    //allocate double pointer to store returned file vals
-    char **processed = (char **)malloc(sizeof(char *)*2);
-    processed[0] = (char *)malloc(sizeof(char)*256);
-    processed[1] = (char *)malloc(sizeof(char)*256);
     size_t path_len = strlen(file_path);
     char *ptr = file_path + path_len;
     int name_len;
-    for(name_len = 0; *(ptr-1) != '/'; name_len++) {
+    for(name_len = 0; *(ptr-1) != '/' && name_len < path_len; name_len++) {
         ptr--;
     }
-    char *f_name = ptr;
-    //printf("File name: %s\n", f_name);
+    //allocate double pointer to store returned file vals
+    char **processed = (char **)malloc(sizeof(char *)*2);
+    processed[0] = (char *)calloc(BUFFER, sizeof(char));
+    processed[1] = (char *)calloc(BUFFER, sizeof(char));
+    strncpy(processed[0], ptr, (size_t)name_len);
     size_t keep = path_len - name_len;
-    char *just_path = (char *)malloc(sizeof(char)*(keep + 1));
-    strncpy(just_path, file_path, keep);
-    processed[0] = f_name;
-    processed[1] = just_path;
+    strncpy(processed[1], file_path, keep);
     return processed;
 }
 
@@ -234,9 +230,9 @@ long get_f_len(char *file_path) {
         fclose(f);
         return file_len;
     } else {
-        char *message = "File not found.";
+        char message[BUFFER];
+        snprintf(message, BUFFER, "File \"%s\" not found.", file_path);
         fatal(LOG_OUTPUT, message);
-        exit(0);
     }
 }
 
@@ -569,11 +565,10 @@ void permut_cipher(cipher *c, int dimension) {
     double *result = transform_vec(dimension, data_in, permutation_mat);
 	//check for data preservation error
 	if(result == NULL) {
-		char *message = (char *)malloc(sizeof(char)*256);
-		sprintf(message, "%s\n%ld%s\n%s\n", "Corruption detected in encryption.", c->bytes_remaining,
+		char message[BUFFER];
+		snprintf(message, BUFFER, "%s\n%ld%s\n%s\n", "Corruption detected in encryption.", c->bytes_remaining,
 				" unencrypted bytes remaining.", "Aborting.");
 		fatal(c->log_path, message);
-		exit(1);
 	}
     double *ptr = result;
     unsigned char *data_result = (unsigned char *)realloc(data_in, sizeof(unsigned char)*(dimension + 1));
