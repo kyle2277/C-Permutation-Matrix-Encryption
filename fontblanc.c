@@ -22,10 +22,10 @@ int trash_indx;
  * Create a cipher structure for the given file with the given encryption key
  * Returns the cipher structure
  */
-cipher create_cipher(char *file_name, char *just_path, long file_length) {
+cipher create_cipher(char *file_name, char *just_path, long file_length, boolean integrity) {
     cipher c = {.permut_map={}, .inv_permut_map={}, .log_path=LOG_OUTPUT, .file_name=file_name,
             .file_path=just_path, .file_len=file_length, .bytes_remaining=file_length,
-            .bytes_processed=0, .instructions=NULL, .num_instructions=0};
+            .bytes_processed=0, .instructions=NULL, .num_instructions=0, .integrity_check=integrity};
     // DEBUG OUTPUT
 //    debug = fopen("FB_WO_debug.txt", "a");
     return c;
@@ -145,7 +145,6 @@ void fatal(char *log_path, char *message) {
     FILE* log = fopen(log_path, "a");
     printf("\nFATAL: %s\n", out);
     fwrite(out, sizeof(char), strlen(out), log);
-    free(out);
     fclose(log);
     exit(-1);
 }
@@ -350,9 +349,11 @@ struct PMAT *gen_permut_mat(cipher *c, int dimension, boolean inverse) {
         c->permut_map[dimension] = resultant_m;
     }
     //create vector to check integrity of data
-    double *check_vec = cc_mv(dimension, dimension, dimension, resultant_m->i->icc, resultant_m->j->icc,
-            resultant_m->v->acc, resultant_m->check_vec_bef);
-    memcpy(resultant_m->check_vec_aft, check_vec, sizeof(double)*dimension);
+    if(c->integrity_check) {
+      double *check_vec = cc_mv(dimension, dimension, dimension, resultant_m->i->icc, resultant_m->j->icc,
+                                resultant_m->v->acc, resultant_m->check_vec_bef);
+      memcpy(resultant_m->check_vec_aft, check_vec, sizeof(double)*dimension);
+    }
     clock_t diff_write = clock() - start_write;
     time_total_write += diff_write;
     //printf("created mat, %d\n", dimension);
@@ -426,18 +427,22 @@ int pull_node(boolean row, int count) {
  * Takes the matrix dimension, a list of bytes from the file and relevant permutation matrix
  * Performs the linear transformation operation on the byte vector and returns the resulting vector
  */
-double *transform_vec(int dimension, unsigned char bytes[], struct PMAT *pm) {
-    double vec[dimension];
-    for(int i = 0; i < dimension; i++) {
-        vec[i] = bytes[i];
-    }
-    clock_t transform_start = clock();
+double *transform_vec(int dimension, unsigned char bytes[], struct PMAT *pm, boolean integrity_check) {
+  double vec[dimension];
+  for(int i = 0; i < dimension; i++) {
+    vec[i] = bytes[i];
+  }
+  clock_t transform_start = clock();
+  // Data integrity check
+  double *result = cc_mv(dimension, dimension, dimension, pm->i->icc, pm->j->icc, pm->v->acc, vec);
+  if(integrity_check) {
     int dot_bef = dot_product(vec, pm->check_vec_bef, dimension);
-    double *result = cc_mv(dimension, dimension, dimension, pm->i->icc, pm->j->icc, pm->v->acc, vec);
     int dot_aft = dot_product(result, pm->check_vec_aft, dimension);
-    clock_t transform_diff = clock() - transform_start;
-    time_transformation += transform_diff;
     return dot_bef == dot_aft ? result : NULL;
+  }
+  clock_t transform_diff = clock() - transform_start;
+  time_transformation += transform_diff;
+  return result;
 }
 
 /*
@@ -445,23 +450,23 @@ double *transform_vec(int dimension, unsigned char bytes[], struct PMAT *pm) {
  * Returns the resulting matrix object
  */
 struct PMAT *orthogonal_transpose(struct PMAT *mat) {
-    int dimension = mat->dimension;
-    struct PMAT *t_m = init_permut_mat(dimension);
-    //switch row and column arrays
-    int *new_icc = mat->j->icc;
-    int *new_jcc = mat->i->icc;
-    int t_icc[dimension];
-    int t_jcc[dimension+1];
-    for(int i = 0; i < dimension; i++) {
-        t_jcc[new_jcc[i]] = new_jcc[i];
-        t_icc[new_jcc[i]] = new_icc[i];
-    }
-    t_jcc[dimension] = dimension;
-    memcpy(t_m->i->icc, t_icc, sizeof(int)*dimension);
-    memcpy(t_m->j->icc, t_jcc, sizeof(int)*(dimension+1));
-    memcpy(t_m->v->acc, mat->v->acc, sizeof(double)*dimension);
-    memcpy(t_m->check_vec_bef, mat->check_vec_bef, sizeof(double)*dimension);
-    return t_m;
+  int dimension = mat->dimension;
+  struct PMAT *t_m = init_permut_mat(dimension);
+  //switch row and column arrays
+  int *new_icc = mat->j->icc;
+  int *new_jcc = mat->i->icc;
+  int t_icc[dimension];
+  int t_jcc[dimension+1];
+  for(int i = 0; i < dimension; i++) {
+    t_jcc[new_jcc[i]] = new_jcc[i];
+    t_icc[new_jcc[i]] = new_icc[i];
+  }
+  t_jcc[dimension] = dimension;
+  memcpy(t_m->i->icc, t_icc, sizeof(int)*dimension);
+  memcpy(t_m->j->icc, t_jcc, sizeof(int)*(dimension+1));
+  memcpy(t_m->v->acc, mat->v->acc, sizeof(double)*dimension);
+  memcpy(t_m->check_vec_bef, mat->check_vec_bef, sizeof(double)*dimension);
+  return t_m;
 }
 
 /*
@@ -469,100 +474,100 @@ struct PMAT *orthogonal_transpose(struct PMAT *mat) {
  * Returns the dot product
  */
 int dot_product(double a[], double b[], int dimension) {
-    double result = 0;
-    for(int i = 0; i < dimension; i++) {
-        result += a[i] * b[i];
-    }
-    return (int) result;
+  double result = 0;
+  for(int i = 0; i < dimension; i++) {
+    result += a[i] * b[i];
+  }
+  return (int) result;
 }
 
 /*
  * Allocate space for a matrix object
  */
 struct PMAT *init_permut_mat(int dimension) {
-    //initialize new matrix object
-    struct PMAT_I *mi = (struct PMAT_I *)malloc(sizeof(*mi) + sizeof(int)*(dimension));
-    //size is N columns + 1 as required by cc_mv matrix multiplication
-    struct PMAT_I *mj = (struct PMAT_I *)malloc(sizeof(*mj) + sizeof(int)*(dimension + 1));
-    struct PMAT_V *mv = (struct PMAT_V *)malloc(sizeof(*mv) + sizeof(double)*(dimension));
-    struct PMAT *m = (struct PMAT *)malloc(sizeof(*m));
-    m->dimension = dimension;
-    m->i = mi;
-    m->j = mj;
-    m->v = mv;
-    return m;
+  //initialize new matrix object
+  struct PMAT_I *mi = (struct PMAT_I *)malloc(sizeof(*mi) + sizeof(int)*(dimension));
+  //size is N columns + 1 as required by cc_mv matrix multiplication
+  struct PMAT_I *mj = (struct PMAT_I *)malloc(sizeof(*mj) + sizeof(int)*(dimension + 1));
+  struct PMAT_V *mv = (struct PMAT_V *)malloc(sizeof(*mv) + sizeof(double)*(dimension));
+  struct PMAT *m = (struct PMAT *)malloc(sizeof(*m));
+  m->dimension = dimension;
+  m->i = mi;
+  m->j = mj;
+  m->v = mv;
+  return m;
 }
 
 /*
  * process file using pseudo-random matrix dimensions
  */
 void rand_distributor(cipher *c, int coeff) {
-    //create encrypt map of length required for file instead of looping
-    //todo limits file size to max size of unsigned int in bytes, ~4GB
-    if(c->bytes_remaining > MAX_DIMENSION) {
-        int approx = (unsigned int)c->bytes_remaining/MAX_DIMENSION;
-        char *linked = gen_linked_vals(c, approx);
-        int map_len = (int)strlen(linked);
-        for(int map_itr = 0; c->bytes_remaining >= MAX_DIMENSION; map_itr++) {
-            int tmp = (charAt(linked, map_itr % map_len) - '0');
-            int dimension = tmp > 1 ? MAX_DIMENSION - (MAX_DIMENSION / tmp) : MAX_DIMENSION;
-            permut_cipher(c, coeff * dimension);
-        }
-        free(linked);
-    } else {
-        int b = (int) c->bytes_remaining;
-        if(b > 0) {
-            permut_cipher(c, coeff*b);
-        }
+  //create encrypt map of length required for file instead of looping
+  //todo limits file size to max size of unsigned int in bytes, ~4GB
+  if(c->bytes_remaining > MAX_DIMENSION) {
+    int approx = (unsigned int)c->bytes_remaining/MAX_DIMENSION;
+    char *linked = gen_linked_vals(c, approx);
+    int map_len = (int)strlen(linked);
+    for(int map_itr = 0; c->bytes_remaining >= MAX_DIMENSION; map_itr++) {
+      int tmp = (charAt(linked, map_itr % map_len) - '0');
+      int dimension = tmp > 1 ? MAX_DIMENSION - (MAX_DIMENSION / tmp) : MAX_DIMENSION;
+      permut_cipher(c, coeff * dimension);
     }
+    free(linked);
+  } else {
+    int b = (int) c->bytes_remaining;
+    if(b > 0) {
+      permut_cipher(c, coeff*b);
+    }
+  }
 }
 
 /*
  * Process file using a fixed matrix dimension
  */
 void fixed_distributor(cipher *c, int coeff, int dimension) {
-    while(c->bytes_remaining >= dimension) {
-        permut_cipher(c, coeff*dimension);
-    }
-    int b = (int)c->bytes_remaining;
-    if(b > 0) {
-        permut_cipher(c, coeff*b);
-    }
+  while(c->bytes_remaining >= dimension) {
+    permut_cipher(c, coeff*dimension);
+  }
+  int b = (int)c->bytes_remaining;
+  if(b > 0) {
+    permut_cipher(c, coeff*b);
+  }
 }
 
 /*
  * Generates a string of pseudo-random values of length provided
  */
  char *gen_linked_vals(cipher *c, int approx) {
-    int sequences = 1;
-    if(approx > 15) {
-        sequences = ((approx - (approx%15))/15) + 1;
-    }
-    //16 is the number of values in the log string
-    char *linked = (char *)calloc((size_t)16*sequences, sizeof(char));
-    //create string used to choose permutation matrix
-    for(int i = 2; i <= sequences+1; i++) {
-        //i + dimension = log base
-        char *logBaseOutput = gen_log_base_str(c, (i+approx));
-        sprintf(linked, "%s%s", linked, logBaseOutput);
-        free(logBaseOutput);
-    }
-    return linked;
+  int sequences = 1;
+  if(approx > 15) {
+    sequences = ((approx - (approx%15))/15) + 1;
+  }
+  //16 is the number of values in the log string
+  char *linked = (char *)calloc((size_t)16*sequences, sizeof(char));
+  //create string used to choose permutation matrix
+  for(int i = 2; i <= sequences+1; i++) {
+    //i + dimension = log base
+    char *logBaseOutput = gen_log_base_str(c, (i+approx));
+    sprintf(linked, "%s%s", linked, logBaseOutput);
+    free(logBaseOutput);
+  }
+  return linked;
 }
 
 /*
  * Facilitates matrix tranformations
  */
 void permut_cipher(cipher *c, int dimension) {
-    long ref = c->bytes_processed;
-    unsigned char *data = c->file_bytes;
-    struct PMAT *pm = lookup(c, dimension);
-    boolean inverse = dimension < 0;
-    dimension = abs(dimension);
-    struct PMAT *permutation_mat = pm ? pm : gen_permut_mat(c, dimension, inverse);
-    unsigned char *data_in = (unsigned char *)calloc((size_t)dimension + 1, sizeof(unsigned char));
-    memcpy(data_in, data+ref, (size_t)sizeof(unsigned char)*dimension);
-    double *result = transform_vec(dimension, data_in, permutation_mat);
+  long ref = c->bytes_processed;
+  unsigned char *data = c->file_bytes;
+  struct PMAT *pm = lookup(c, dimension);
+  boolean inverse = dimension < 0;
+  dimension = abs(dimension);
+  struct PMAT *permutation_mat = pm ? pm : gen_permut_mat(c, dimension, inverse);
+  unsigned char *data_in = (unsigned char *)calloc((size_t)dimension + 1, sizeof(unsigned char));
+  memcpy(data_in, data+ref, (size_t)sizeof(unsigned char)*dimension);
+  double *result = transform_vec(dimension, data_in, permutation_mat, c->integrity_check);
 	//check for data preservation error
 	if(result == NULL) {
 		char message[BUFFER];
@@ -570,16 +575,16 @@ void permut_cipher(cipher *c, int dimension) {
 				" unencrypted bytes remaining.", "Aborting.");
 		fatal(c->log_path, message);
 	}
-    double *ptr = result;
-    unsigned char *data_result = (unsigned char *)realloc(data_in, sizeof(unsigned char)*(dimension + 1));
-    memset(data_result, '\0', (size_t)dimension + 1);
-    for(int i = 0; i < dimension; i++, ptr++) {
-        data_result[i] = (unsigned char)*ptr;
-    }
-    memcpy(data+ref, data_result, (size_t)dimension);
-    free(data_result);
-    c->bytes_processed += dimension;
-    c->bytes_remaining -= dimension;
+  double *ptr = result;
+  unsigned char *data_result = (unsigned char *)realloc(data_in, sizeof(unsigned char)*(dimension + 1));
+  memset(data_result, '\0', (size_t)dimension + 1);
+  for(int i = 0; i < dimension; i++, ptr++) {
+    data_result[i] = (unsigned char)*ptr;
+  }
+  memcpy(data+ref, data_result, (size_t)dimension);
+  free(data_result);
+  c->bytes_processed += dimension;
+  c->bytes_remaining -= dimension;
 }
 
 /*
@@ -587,7 +592,7 @@ void permut_cipher(cipher *c, int dimension) {
  * Returns corresponding matrix object if exists
  */
 struct PMAT *lookup(cipher *c, int dimension) {
-    return dimension < 0 ? c->inv_permut_map[abs(dimension)] : c->permut_map[abs(dimension)];
+  return dimension < 0 ? c->inv_permut_map[abs(dimension)] : c->permut_map[abs(dimension)];
 }
 
 /*
@@ -596,8 +601,8 @@ struct PMAT *lookup(cipher *c, int dimension) {
  * Returns an array of instructions
  */
 instruction *create_instruction(int dimension, char encrypt_key[]) {
-    instruction *i = (instruction *)malloc(sizeof(*i) + sizeof(char)*(strlen(encrypt_key)+1));
-    i->dimension = dimension;
-    memcpy(i->encrypt_key, encrypt_key, sizeof(char)*(strlen(encrypt_key)+1));
-    return i;
+  instruction *i = (instruction *)malloc(sizeof(*i) + sizeof(char)*(strlen(encrypt_key)+1));
+  i->dimension = dimension;
+  memcpy(i->encrypt_key, encrypt_key, sizeof(char)*(strlen(encrypt_key)+1));
+  return i;
 }

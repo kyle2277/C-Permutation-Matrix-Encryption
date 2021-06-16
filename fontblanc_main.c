@@ -59,6 +59,7 @@ void get_key(char *encrypt_key) {
 
 int main(int argc, char *argv[]) {
   clock_t start = clock();
+  printf("Start time: %d\n\n", (int) (start *1000 / CLOCKS_PER_SEC));
   // Parse input file path
   char *absolute_path = argv[1];
   char **processed = parse_f_path(absolute_path);
@@ -71,12 +72,11 @@ int main(int argc, char *argv[]) {
   int dimension = 0;
   boolean delete_when_done = false;
   boolean multiple_passes = false;
-  boolean skip_integrity_checks = false;
+  boolean integrity_check = true;
   char error[BUFFER];
   memset(&error, '\0', BUFFER);
   int int_arg;
   splash();
-  printf("Start time: %d\n\n", (int) (start *1000 / CLOCKS_PER_SEC));
   // Get opt
   int opt_status = 0;
   char *remaining;
@@ -118,7 +118,7 @@ int main(int argc, char *argv[]) {
         multiple_passes = true;
         break;
       case 's':
-        skip_integrity_checks = true;
+        integrity_check = false;
         break;
       case 'h':
         // Print help
@@ -138,9 +138,10 @@ int main(int argc, char *argv[]) {
   }
   instruction **instructions = (instruction **)malloc(sizeof(instruction *) * MAX_INSTRUCTIONS);
   long file_len = get_f_len(absolute_path);
-  cipher ciph = create_cipher(file_name, just_path, file_len);
+  cipher ciph = create_cipher(file_name, just_path, file_len, integrity_check);
   //app welcome
-  printf("%s%s\n%s%ld%s\n%s%s\n\n", "File name: ", ciph.file_name, "File size: ", file_len, " Bytes", "Mode: ", encrypt ? "encrypt" : "decrypt");
+  printf("%s%s\n%s%ld%s\n%s%s\n%s%s\n\n", "File name: ", ciph.file_name, "File size: ", file_len,
+          " Bytes", "Mode: ", encrypt ? "encrypt" : "decrypt", "Data integrity checks: ", integrity_check ? "on" : "off");
   help();
   if(strlen(encrypt_key) == 0) {
     get_key(encrypt_key);
@@ -165,5 +166,6 @@ int main(int argc, char *argv[]) {
   clock_t difference = clock() - start;
   double sec = (double)difference / CLOCKS_PER_SEC;
   printf("Elapsed time (s): %.2lf\n", sec);
+  printf("Done.\n");
   return status;
 }
