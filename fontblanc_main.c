@@ -13,11 +13,9 @@
 #include <getopt.h>
 #include <termios.h>
 
-#define OPTIONS "iedD:k:o:xrsh"
+#define OPTIONS "iedD:k:o:xmsh"
 
 typedef struct user_command {
-  char *file_name;
-  char *file_path;
   int encrypt;
   int dimension;
   boolean delete_when_done;
@@ -63,13 +61,26 @@ void get_key(char *encrypt_key) {
     fatal(LOG_OUTPUT, "Error reading key input.");
   }
   printf("\n");
-  encrypt_key[strlen(encrypt_key) - 1] = '\0';
   term.c_lflag |= ECHO;
   tcsetattr(fileno(stdin), 0, &term);
   printf("Key = %s\n", encrypt_key);
 }
 
-void read_command(command *com, int argc, char **argv) {
+/*
+ * Removes newline character, if it exists, from the end of the given string.
+ */
+void remove_newline(char *encrypt_key) {
+  size_t key_len = strlen(encrypt_key);
+  if(*(encrypt_key + (key_len - 1)) == '\n') {
+    *(encrypt_key + (key_len - 1)) = '\0';
+  }
+}
+
+/*
+ * Parses options from given argv array and stores in command struct.
+ * Retuns 0 if successful, otherwise returns erroneous option.
+ */
+int read_command(command *com, int argc, char **argv) {
   com->encrypt = -1;
   com->encrypt_key = (char *)calloc(BUFFER, sizeof(char));
   com->output_path = (char *)calloc(BUFFER, sizeof(char));
@@ -82,6 +93,8 @@ void read_command(command *com, int argc, char **argv) {
   int int_arg;
   // Get opt
   int opt_status = 0;
+  // Reset getopt
+  optind = 1;
   char *remaining;
   while ((opt_status = getopt(argc, argv, OPTIONS)) != -1) {
     switch (opt_status) {
@@ -115,7 +128,7 @@ void read_command(command *com, int argc, char **argv) {
       case 'x':
         com->delete_when_done = true;
         break;
-      case 'r':
+      case 'm':
         com->multilevel = true;
         break;
       case 's':
@@ -123,23 +136,68 @@ void read_command(command *com, int argc, char **argv) {
         break;
       case 'h':
         // Print help
-        printf("Print help.\n");
+        help();
         break;
       case ':':
         sprintf(error, "Missing argument for -%c\n", optopt);
-        fatal(LOG_OUTPUT, error);
-        break;
+        printf("%s\n", error);
+        return optopt;
       case '?':
         sprintf(error, "Unknown argument -%c\n", optopt);
-        fatal(LOG_OUTPUT, error);
-        break;
+        printf("%s\n", error);
+        return optopt;
       default:
         break;
     }
   }
+  return 0;
 }
 
-int main(int argc, char *argv[]) {
+/*
+ * Reads instructions from input and adds them to the given instructions struct. Returns total
+ * number of instructions.
+ */
+int instruction_input_loop(instruction **instructions, int num_instructions) {
+  if(!instructions) {
+    return num_instructions;
+  }
+  char *input = (char *)calloc(BUFFER, sizeof(char));
+  int argc = 1;
+  char **argv = (char **)malloc(sizeof(char *) * 32);
+  // set first value of argv NULL as placeholder for cwd
+  argv[0] = NULL;
+  printf("Enter an instruction:\n");
+  fgets(input, BUFFER, stdin);
+  while(strcmp(input, "done\n") != 0) {
+    char *token = strtok(input, " ");
+    while(token != NULL) {
+      argv[argc] = token;
+      argc += 1;
+      token = strtok(NULL, " ");
+    }
+    command *com = (command *)malloc(sizeof(command));
+    int com_status = read_command(com, argc, argv);
+    if(com_status != 0) {
+      printf("Please re-enter instruction:\n");
+    } else {
+      if(strlen(com->encrypt_key) == 0) {
+        get_key(com->encrypt_key);
+      }
+      remove_newline(com->encrypt_key);
+      instructions[num_instructions] = create_instruction(com->dimension, com->encrypt_key, com->integrity_check);
+      num_instructions += 1;
+      memset(com->encrypt_key, '\0', strlen(com->encrypt_key));
+    }
+    free(com);
+    printf("Enter an instruction:\n");
+    fgets(input, BUFFER, stdin);
+  }
+  free(input);
+  free(argv);
+  return num_instructions;
+}
+
+int main(int argc, char **argv) {
   clock_t start = clock();
   printf("Start time: %d\n\n", (int) (start *1000 / CLOCKS_PER_SEC));
 
@@ -153,27 +211,36 @@ int main(int argc, char *argv[]) {
   long file_len = get_f_len(absolute_path);
 
   command *com = (command *)malloc(sizeof(command));
-  com->file_name = file_name;
-  com->file_path = just_path;
-  read_command(com, argc, argv);
-
+  int com_status = read_command(com, argc, argv);
+  if(com_status != 0) {
+    char error[BUFFER];
+    sprintf(error, "Fatal error on option -%c. Exiting.\n", com_status);
+    fatal(LOG_OUTPUT, error);
+  }
   cipher ciph = create_cipher(file_name, just_path, file_len);
   //app welcome
   help();
   if(strlen(com->encrypt_key) == 0) {
     get_key(com->encrypt_key);
   }
+  remove_newline(com->encrypt_key);
   instructions[0] = create_instruction(com->dimension, com->encrypt_key, com->integrity_check);
   memset(com->encrypt_key, '\0', strlen(com->encrypt_key));
   int num_instructions = 1;
+  // If multilevel encryption flag set, enter instruction input loop
+  if(com->multilevel) {
+    num_instructions = instruction_input_loop(instructions, num_instructions);
+  }
   set_instructions(&ciph, instructions, num_instructions);
-  print_instruction(&ciph, 0, com->encrypt);
+  for(int i = 0; i < num_instructions; i++) {
+    print_instruction(&ciph, i, com->encrypt);
+  }
   if(com->encrypt) {
     printf("Encrypting...\n");
   } else {
     printf("Decrypting...\n");
   }
-  int status = run(&ciph, com->encrypt);
+  int ciph_status = run(&ciph, com->encrypt);
   clean_instructions(instructions, num_instructions);
   close_cipher(&ciph);
   free(com->encrypt_key);
@@ -186,5 +253,5 @@ int main(int argc, char *argv[]) {
   double sec = (double)difference / CLOCKS_PER_SEC;
   printf("Elapsed time (s): %.2lf\n", sec);
   printf("Done.\n");
-  return status;
+  return ciph_status;
 }

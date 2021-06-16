@@ -646,6 +646,7 @@ void print_instruction(cipher *c, int instruction_index, boolean encrypt) {
     return;
   }
   instruction * ins = c->instructions[instruction_index];
+  printf("| Instruction #%d |\n", instruction_index + 1);
   printf("File name: %s\n", c->file_name);
   printf("File size: %ld\n", c->file_len);
   printf("Mode: %s\n", encrypt ? "encrypt" : "decrypt");
@@ -657,7 +658,5 @@ void print_instruction(cipher *c, int instruction_index, boolean encrypt) {
     printf("variable\n");
   }
   printf("Data integrity checks: %s\n", ins->integrity_check ? "on" : "off");
-  printf("Multilevel encryption: NOT IMPLEMENTED\n");
-  printf("Delete source file when done: NOT IMPLEMENTED\n");
   printf("\n");
 }
