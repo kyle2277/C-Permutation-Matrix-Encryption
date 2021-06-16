@@ -15,6 +15,18 @@
 
 #define OPTIONS "iedD:k:o:xrsh"
 
+typedef struct user_command {
+  char *file_name;
+  char *file_path;
+  int encrypt;
+  int dimension;
+  boolean delete_when_done;
+  boolean integrity_check;
+  boolean multilevel;
+  char *encrypt_key;
+  char *output_path;
+} command;
+
 void splash() {
   FILE *splash;
   if((splash = fopen("./splash.txt", "r"))) {
@@ -57,68 +69,57 @@ void get_key(char *encrypt_key) {
   printf("Key = %s\n", encrypt_key);
 }
 
-int main(int argc, char *argv[]) {
-  clock_t start = clock();
-  printf("Start time: %d\n\n", (int) (start *1000 / CLOCKS_PER_SEC));
-  // Parse input file path
-  char *absolute_path = argv[1];
-  char **processed = parse_f_path(absolute_path);
-  char *file_name = processed[0];
-  char *just_path = processed[1];
-  boolean interactive_mode = false;
-  int encrypt = -1;
-  char *encrypt_key = (char *)calloc(BUFFER, sizeof(char));
-  char *output_path = (char *)calloc(BUFFER, sizeof(char));
-  int dimension = 0;
-  boolean delete_when_done = false;
-  boolean multiple_passes = false;
-  boolean integrity_check = true;
+void read_command(command *com, int argc, char **argv) {
+  com->encrypt = -1;
+  com->encrypt_key = (char *)calloc(BUFFER, sizeof(char));
+  com->output_path = (char *)calloc(BUFFER, sizeof(char));
+  com->dimension = 0;
+  com->delete_when_done = false;
+  com->multilevel = false;
+  com->integrity_check = true;
   char error[BUFFER];
   memset(&error, '\0', BUFFER);
   int int_arg;
-  splash();
   // Get opt
   int opt_status = 0;
   char *remaining;
   while ((opt_status = getopt(argc, argv, OPTIONS)) != -1) {
     switch (opt_status) {
-      case 'i':
-        interactive_mode = true;
-        break;
       case 'e':
-        if(encrypt >= 0) {
+        if(com->encrypt >= 0) {
           fatal(LOG_OUTPUT, "Cannot set encrypt flag and decrypt flag at the same time.");
         } else {
-          encrypt = true;
+          com->encrypt = true;
         }
         break;
       case 'd':
-        if(encrypt >= 0) {
+        if(com->encrypt >= 0) {
           fatal(LOG_OUTPUT, "Cannot set encrypt flag and decrypt flag at the same time.");
         }
-        encrypt = false;
+        com->encrypt = false;
+        break;
       case 'D':
         int_arg = (int)strtol(optarg, &remaining, 10);
         if (int_arg > 0) {
-          dimension = int_arg;
+          com->dimension = int_arg;
         } else {
           fatal(LOG_OUTPUT, "Dimension argument (-D) must be positive a integer.");
         }
         break;
       case 'k':
-        strncpy(encrypt_key, optarg, strlen(optarg));
+        strncpy(com->encrypt_key, optarg, strlen(optarg));
         break;
       case 'o':
-        strncpy(output_path, optarg, strlen(optarg));
+        strncpy(com->output_path, optarg, strlen(optarg));
         break;
       case 'x':
-        delete_when_done = true;
+        com->delete_when_done = true;
         break;
       case 'r':
-        multiple_passes = true;
+        com->multilevel = true;
         break;
       case 's':
-        integrity_check = false;
+        com->integrity_check = false;
         break;
       case 'h':
         // Print help
@@ -136,33 +137,51 @@ int main(int argc, char *argv[]) {
         break;
     }
   }
+}
+
+int main(int argc, char *argv[]) {
+  clock_t start = clock();
+  printf("Start time: %d\n\n", (int) (start *1000 / CLOCKS_PER_SEC));
+
+  // Parse input file path
+  char *absolute_path = argv[1];
+  char **processed = parse_f_path(absolute_path);
+  char *file_name = processed[0];
+  char *just_path = processed[1];
+  boolean interactive_mode = false;
   instruction **instructions = (instruction **)malloc(sizeof(instruction *) * MAX_INSTRUCTIONS);
   long file_len = get_f_len(absolute_path);
-  cipher ciph = create_cipher(file_name, just_path, file_len, integrity_check);
+
+  command *com = (command *)malloc(sizeof(command));
+  com->file_name = file_name;
+  com->file_path = just_path;
+  read_command(com, argc, argv);
+
+  cipher ciph = create_cipher(file_name, just_path, file_len);
   //app welcome
-  printf("%s%s\n%s%ld%s\n%s%s\n%s%s\n\n", "File name: ", ciph.file_name, "File size: ", file_len,
-          " Bytes", "Mode: ", encrypt ? "encrypt" : "decrypt", "Data integrity checks: ", integrity_check ? "on" : "off");
   help();
-  if(strlen(encrypt_key) == 0) {
-    get_key(encrypt_key);
+  if(strlen(com->encrypt_key) == 0) {
+    get_key(com->encrypt_key);
   }
-  instructions[0] = create_instruction(dimension, encrypt_key);
-  memset(encrypt_key, '\0', strlen(encrypt_key));
+  instructions[0] = create_instruction(com->dimension, com->encrypt_key, com->integrity_check);
+  memset(com->encrypt_key, '\0', strlen(com->encrypt_key));
   int num_instructions = 1;
   set_instructions(&ciph, instructions, num_instructions);
-  if(encrypt) {
+  print_instruction(&ciph, 0, com->encrypt);
+  if(com->encrypt) {
     printf("Encrypting...\n");
   } else {
     printf("Decrypting...\n");
   }
-  int status = run(&ciph, encrypt);
+  int status = run(&ciph, com->encrypt);
   clean_instructions(instructions, num_instructions);
   close_cipher(&ciph);
-  free(encrypt_key);
-  free(output_path);
+  free(com->encrypt_key);
+  free(com->output_path);
   free(processed[0]);
   free(processed[1]);
   free(processed);
+  free(com);
   clock_t difference = clock() - start;
   double sec = (double)difference / CLOCKS_PER_SEC;
   printf("Elapsed time (s): %.2lf\n", sec);

@@ -8,9 +8,8 @@
 #define MAX_DIMENSION 4096
 //Increase if crashing ***MUST BE HIGHER THAN MAX DIMENSION***
 #define MAPSIZE MAX_DIMENSION + 1
-#define ENCRYPT_TAG "e_"
 #define ENCRYPT_EXT ".fbz"
-#define DECRYPT_TAG ""
+#define DECRYPT_TAG "d_"
 #define BUFFER 256
 #define MAX_INSTRUCTIONS 10
 
@@ -40,7 +39,8 @@ struct PMAT_V {
 
 typedef struct instruction {
     int dimension;
-    char encrypt_key[];
+    boolean integrity_check;
+    char encrypt_key[BUFFER];
 } instruction;
 
 typedef struct cipher{
@@ -72,7 +72,7 @@ int close_cipher(cipher *c);
 void purge_maps(cipher *c);
 void purge_mat(struct PMAT *pm);
 char **parse_f_path(char *file_path);
-cipher create_cipher(char *file_name, char *just_path, long file_length, boolean integrity_check);
+cipher create_cipher(char *file_name, char *just_path, long file_length);
 long get_f_len(char *file_path);
 void set_instructions(cipher *c, instruction **instructions, int num_instructions);
 int run(cipher *c, boolean encrypt);
@@ -95,6 +95,7 @@ void rand_distributor(cipher *c, int coeff);
 void fixed_distributor(cipher *c, int coeff, int dimension);
 void permut_cipher(cipher *c, int dimension);
 struct PMAT *lookup(cipher *c, int dimension);
-instruction *create_instruction(int dimension, char *encryptKey);
+instruction *create_instruction(int dimension, char *encrypt_key, boolean integrity_check);
+void print_instruction(cipher *c, int instruction_index, boolean encrypt);
 
 #endif

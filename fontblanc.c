@@ -22,10 +22,10 @@ int trash_indx;
  * Create a cipher structure for the given file with the given encryption key
  * Returns the cipher structure
  */
-cipher create_cipher(char *file_name, char *just_path, long file_length, boolean integrity) {
+cipher create_cipher(char *file_name, char *just_path, long file_length) {
     cipher c = {.permut_map={}, .inv_permut_map={}, .log_path=LOG_OUTPUT, .file_name=file_name,
             .file_path=just_path, .file_len=file_length, .bytes_remaining=file_length,
-            .bytes_processed=0, .instructions=NULL, .num_instructions=0, .integrity_check=integrity};
+            .bytes_processed=0, .instructions=NULL, .num_instructions=0, .integrity_check=true};
     // DEBUG OUTPUT
 //    debug = fopen("FB_WO_debug.txt", "a");
     return c;
@@ -79,6 +79,7 @@ void read_instructions(cipher *c, int coeff) {
         instruction *cur = c->instructions[abs(i)];
         c->bytes_remaining = c->file_len;
         c->bytes_processed = 0;
+        c->integrity_check = cur->integrity_check;
         //FIXED: dimension cannot be larger than max dimension
         int dimension = cur->dimension > MAX_DIMENSION ? MAX_DIMENSION : cur->dimension;
         size_t key_len = strlen(cur->encrypt_key);
@@ -105,11 +106,7 @@ unsigned char* read_input(cipher *c, int coeff) {
     long file_len = c->file_len;
     FILE *in;
     char *f_in_path = (char *)malloc(sizeof(char) * BUFFER);
-    if(coeff > 0) { //encrypt
-        sprintf(f_in_path, "%s%s", c->file_path, c->file_name);
-    } else { //decrypt
-        sprintf(f_in_path, "%s%s%s%s", c->file_path, ENCRYPT_TAG, c->file_name, ENCRYPT_EXT);
-    }
+    sprintf(f_in_path, "%s%s", c->file_path, c->file_name);
     in = fopen(f_in_path, "r");
     unsigned char *file_bytes = (unsigned char *)calloc((size_t)file_len + 1, sizeof(unsigned char));
     fread(file_bytes, sizeof(unsigned char), (size_t)file_len, in);
@@ -119,13 +116,46 @@ unsigned char* read_input(cipher *c, int coeff) {
 }
 
 /*
+ * Returns the extension of a given file name.
+ */
+char *get_extension(char *file_name) {
+  size_t name_len = strlen(file_name);
+  char *ptr = file_name + name_len;
+  int ext_len;
+  for(ext_len = 0; *(ptr-1) != '.' && ext_len < name_len; ext_len++) {
+    ptr--;
+  }
+  return (ptr - 1);
+}
+
+/*
+ * Pre-condition: file_name must end with the given extension.
+ */
+void remove_extension(char *file_name, char *extension) {
+  size_t extension_len = strlen(extension);
+  size_t filename_len = strlen(file_name);
+  *(file_name + (filename_len - extension_len)) = '\0';
+}
+
+/*
  * Writes encrypted/decrypted data to file
  */
 void write_output(cipher *c, int coeff) {
     char *f_out_path = (char *)malloc(sizeof(char)*BUFFER);
+    char *extension = get_extension(c->file_name);
     if(coeff > 0) { //encrypt
-        sprintf(f_out_path, "%s%s%s%s", c->file_path, ENCRYPT_TAG, c->file_name, ENCRYPT_EXT);
+        // Only add extension to output if it doesn't already exist
+        if(strcmp(extension, ENCRYPT_EXT) == 0) {
+          sprintf(f_out_path, "%s%s", c->file_path, c->file_name);
+        } else {
+          sprintf(f_out_path, "%s%s%s", c->file_path, c->file_name, ENCRYPT_EXT);
+        }
     } else { //decrypt
+        // Check if need to remove extension
+        if(strcmp(extension, ENCRYPT_EXT) == 0) {
+          // remove extension
+          remove_extension(c->file_name, ENCRYPT_EXT);
+        }
         sprintf(f_out_path, "%s%s%s", c->file_path, DECRYPT_TAG, c->file_name);
     }
     FILE *out = fopen(f_out_path, "w");
@@ -232,6 +262,7 @@ long get_f_len(char *file_path) {
         char message[BUFFER];
         snprintf(message, BUFFER, "File \"%s\" not found.", file_path);
         fatal(LOG_OUTPUT, message);
+        exit(-1);
     }
 }
 
@@ -437,6 +468,8 @@ double *transform_vec(int dimension, unsigned char bytes[], struct PMAT *pm, boo
   double *result = cc_mv(dimension, dimension, dimension, pm->i->icc, pm->j->icc, pm->v->acc, vec);
   if(integrity_check) {
     int dot_bef = dot_product(vec, pm->check_vec_bef, dimension);
+    clock_t transform_diff = clock() - transform_start;
+    time_transformation += transform_diff;
     int dot_aft = dot_product(result, pm->check_vec_aft, dimension);
     return dot_bef == dot_aft ? result : NULL;
   }
@@ -600,9 +633,31 @@ struct PMAT *lookup(cipher *c, int dimension) {
  * (0 = random dimensions, >=1 = fixed dimension) and the dimension (if fixed)
  * Returns an array of instructions
  */
-instruction *create_instruction(int dimension, char encrypt_key[]) {
+instruction *create_instruction(int dimension, char *encrypt_key, boolean integrity_check) {
   instruction *i = (instruction *)malloc(sizeof(*i) + sizeof(char)*(strlen(encrypt_key)+1));
   i->dimension = dimension;
   memcpy(i->encrypt_key, encrypt_key, sizeof(char)*(strlen(encrypt_key)+1));
+  i->integrity_check = integrity_check;
   return i;
+}
+
+void print_instruction(cipher *c, int instruction_index, boolean encrypt) {
+  if(!c || !c->instructions || !c->instructions[instruction_index]) {
+    return;
+  }
+  instruction * ins = c->instructions[instruction_index];
+  printf("File name: %s\n", c->file_name);
+  printf("File size: %ld\n", c->file_len);
+  printf("Mode: %s\n", encrypt ? "encrypt" : "decrypt");
+  printf("Key: %s\n", ins->encrypt_key);
+  printf("Matrix dimension: ");
+  if(ins->dimension > 0) {
+    printf("%d\n", ins->dimension);
+  } else {
+    printf("variable\n");
+  }
+  printf("Data integrity checks: %s\n", ins->integrity_check ? "on" : "off");
+  printf("Multilevel encryption: NOT IMPLEMENTED\n");
+  printf("Delete source file when done: NOT IMPLEMENTED\n");
+  printf("\n");
 }
