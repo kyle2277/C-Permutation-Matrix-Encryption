@@ -96,6 +96,4 @@ void fixed_distributor(cipher *c, int coeff, int dimension);
 void permut_cipher(cipher *c, int dimension);
 struct PMAT *lookup(cipher *c, int dimension);
 instruction *create_instruction(int dimension, char *encrypt_key, boolean integrity_check);
-void print_instruction(cipher *c, int instruction_index, boolean encrypt);
-
 #endif

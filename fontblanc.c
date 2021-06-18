@@ -173,7 +173,7 @@ void fatal(char *log_path, char *message) {
     char out[BUFFER];
     snprintf(out, BUFFER, "\n%s%s\n", asctime(loctime), message);
     FILE* log = fopen(log_path, "a");
-    printf("\nFATAL: %s\n", out);
+    printf("\nFontBlanc - ERROR: %s\n", out);
     fwrite(out, sizeof(char), strlen(out), log);
     fclose(log);
     exit(-1);
@@ -259,10 +259,7 @@ long get_f_len(char *file_path) {
         fclose(f);
         return file_len;
     } else {
-        char message[BUFFER];
-        snprintf(message, BUFFER, "File \"%s\" not found.", file_path);
-        fatal(LOG_OUTPUT, message);
-        exit(-1);
+        return -1;
     }
 }
 
@@ -639,22 +636,4 @@ instruction *create_instruction(int dimension, char *encrypt_key, boolean integr
   memcpy(i->encrypt_key, encrypt_key, sizeof(char)*(strlen(encrypt_key)+1));
   i->integrity_check = integrity_check;
   return i;
-}
-
-void print_instruction(cipher *c, int instruction_index, boolean encrypt) {
-  if(!c || !c->instructions || !c->instructions[instruction_index]) {
-    return;
-  }
-  instruction * ins = c->instructions[instruction_index];
-  printf("| Instruction #%d |\n", instruction_index + 1);
-  printf("Mode: %s\n", encrypt ? "encrypt" : "decrypt");
-  printf("Key: %s\n", ins->encrypt_key);
-  printf("Matrix dimension: ");
-  if(ins->dimension > 0) {
-    printf("%d\n", ins->dimension);
-  } else {
-    printf("variable\n");
-  }
-  printf("Data integrity checks: %s\n", ins->integrity_check ? "on" : "off");
-  printf("\n");
 }
