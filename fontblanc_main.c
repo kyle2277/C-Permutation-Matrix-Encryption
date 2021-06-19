@@ -1,6 +1,8 @@
-//
-// Created by kylej on 6/15/21.
-//
+/*
+ * fontblanc_main.c
+ * Kyle Won
+ * Command line user interaction controls for FontBlanc_C. Contains main function.
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,12 +15,13 @@
 #include <getopt.h>
 #include <termios.h>
 
-#define OPTIONS "iedD:k:o:xmshr"
+#define INIT_OPTIONS "iedD:k:o:xmsh"
+#define COMMAND_OPTIONS ":k:D:shr"
 
-// Specifies encryption or decryption mode
-boolean encrypt;
-
-typedef struct user_command {
+/*
+ * Contains global information from initial arguments. Can include first instruction.
+ */
+typedef struct initial_state {
   int encrypt;
   // Permuation matrix dimmension, 0 if variable
   int dimension;
@@ -27,12 +30,27 @@ typedef struct user_command {
   boolean integrity_check;
   // Specifies whether to enter instruction input loop for multiple passes
   boolean multilevel;
-  // Specifies whether to remove last instruction
-  boolean remove_last;
   char *encrypt_key;
   char *output_path;
+} initial_state;
+
+/*
+ * Contains information for one instruction (one pass of encryption/decryption).
+ */
+typedef struct command {
+  // Permuation matrix dimmension, 0 if variable
+  int dimension;
+  char *encrypt_key;
+  // Specifies whether to perform data integrity check after every linear transformation
+  boolean integrity_check;
+  // Specifies whether to remove last instruction
+  boolean remove_last;
+  boolean help;
 } command;
 
+/*
+ * Prints ASCII art splash.
+ */
 void splash() {
   FILE *splash;
   if((splash = fopen("./splash.txt", "r"))) {
@@ -47,10 +65,14 @@ void splash() {
   }
 }
 
-void help() {
-
+void main_help() {}
+void instruction_help() {
+  printf("Some instruction help.\n");
 }
 
+/*
+ * Zero's out encrypt key field in every instruction.
+ */
 void clean_instructions(instruction **instructions, int num_instructions) {
   for(int i = 0; i < num_instructions; i++) {
     instruction *cur = instructions[i];
@@ -58,6 +80,9 @@ void clean_instructions(instruction **instructions, int num_instructions) {
   }
 }
 
+/*
+ * Free's dynamically allocated instruction memory.
+ */
 void free_instructions(instruction **instructions, int num_instructions) {
   for(int i = 0; i < num_instructions; i++) {
     free(instructions[i]);
@@ -65,7 +90,9 @@ void free_instructions(instruction **instructions, int num_instructions) {
   free(instructions);
 }
 
-
+/*
+ * Prints specified number of instructions to stdout.
+ */
 void print_instructions(instruction **instructions, int num_instructions) {
   if(num_instructions <= 0) {
     printf("\nNo instructions added\n");
@@ -87,7 +114,9 @@ void print_instructions(instruction **instructions, int num_instructions) {
   }
 }
 
-// Uses termios to disable terminal echoing and reads encrypt key from user input.
+/*
+ * Uses termios to disable terminal echoing and reads encrypt key from user input.
+ */
 void get_key(char *encrypt_key) {
   printf("Enter key: ");
   struct termios term;
@@ -97,10 +126,8 @@ void get_key(char *encrypt_key) {
   if(!fgets(encrypt_key, BUFFER, stdin)) {
     fatal(LOG_OUTPUT, "Error reading key input.");
   }
-  //printf("\n");
   term.c_lflag |= ECHO;
   tcsetattr(fileno(stdin), 0, &term);
-  //printf("Key = %s\n", encrypt_key);
 }
 
 /*
@@ -114,18 +141,91 @@ void remove_newline(char *encrypt_key) {
 }
 
 /*
+ * Reads initial arguments and set program start state.
+ * Returns 0 if successful, otherwise returns erroneous option.
+ */
+int read_initial_state(initial_state *init, int argc, char **argv) {
+  init->encrypt = -1;
+  init->encrypt_key = (char *)calloc(BUFFER, sizeof(char));
+  init->output_path = (char *)calloc(BUFFER, sizeof(char));
+  init->dimension = 0;
+  init->delete_when_done = false;
+  init->multilevel = false;
+  init->integrity_check = true;
+  char error[BUFFER];
+  memset(error, '\0', BUFFER);
+  int int_arg;
+  // Get opt
+  int opt_status = 0;
+  char *remaining;
+  while ((opt_status = getopt(argc, argv, INIT_OPTIONS)) != -1) {
+    switch (opt_status) {
+      case 'e':
+        if(init->encrypt >= 0) {
+          fatal(LOG_OUTPUT, "Invalid usage - cannot set encrypt flag and decrypt flag at the same time.");
+        } else {
+          init->encrypt = true;
+        }
+        break;
+      case 'd':
+        if(init->encrypt >= 0) {
+          fatal(LOG_OUTPUT, "Invalid usage - cannot set encrypt flag and decrypt flag at the same time.");
+        }
+        init->encrypt = false;
+        break;
+      case 'D':
+        int_arg = (int)strtol(optarg, &remaining, 10);
+        if (int_arg > 0) {
+          init->dimension = int_arg;
+        } else {
+          fatal(LOG_OUTPUT, "Argument for dimension option (-D) must be positive a integer.");
+        }
+        break;
+      case 'k':
+        strncpy(init->encrypt_key, optarg, strlen(optarg));
+        break;
+      case 'o':
+        strncpy(init->output_path, optarg, strlen(optarg));
+        break;
+      case 'x':
+        init->delete_when_done = true;
+        break;
+      case 'm':
+        init->multilevel = true;
+        break;
+      case 's':
+        init->integrity_check = false;
+        break;
+      case 'h':
+        // Print main help
+        main_help();
+        break;
+      case ':':
+        sprintf(error, "Missing argument for -%c\n", optopt);
+        printf("%s\n", error);
+        return optopt;
+      case '?':
+        sprintf(error, "Unknown argument -%c\n", optopt);
+        printf("%s\n", error);
+        return optopt;
+      default:
+        printf("DEFAULT\n");
+        break;
+    }
+  }
+  return 0;
+}
+
+/*
  * Parses options from given argv array and stores in command struct.
  * Retuns 0 if successful, otherwise returns erroneous option.
  */
 int read_command(command *com, int argc, char **argv) {
-  com->encrypt = -1;
   com->encrypt_key = (char *)calloc(BUFFER, sizeof(char));
-  com->output_path = (char *)calloc(BUFFER, sizeof(char));
   com->dimension = 0;
-  com->delete_when_done = false;
-  com->multilevel = false;
   com->integrity_check = true;
   com->remove_last = false;
+  com->help = false;
   char error[BUFFER];
   memset(error, '\0', BUFFER);
   int int_arg;
@@ -134,21 +234,8 @@ int read_command(command *com, int argc, char **argv) {
   // Reset getopt
   optind = 1;
   char *remaining;
-  while ((opt_status = getopt(argc, argv, OPTIONS)) != -1) {
+  while ((opt_status = getopt(argc, argv, COMMAND_OPTIONS)) != -1) {
     switch (opt_status) {
-      case 'e':
-        if(com->encrypt >= 0) {
-          fatal(LOG_OUTPUT, "Invalid usage - cannot set encrypt flag and decrypt flag at the same time.");
-        } else {
-          com->encrypt = true;
-        }
-        break;
-      case 'd':
-        if(com->encrypt >= 0) {
-          fatal(LOG_OUTPUT, "Invalid usage - cannot set encrypt flag and decrypt flag at the same time.");
-        }
-        com->encrypt = false;
-        break;
       case 'D':
         int_arg = (int)strtol(optarg, &remaining, 10);
         if (int_arg > 0) {
@@ -160,15 +247,6 @@ int read_command(command *com, int argc, char **argv) {
       case 'k':
         strncpy(com->encrypt_key, optarg, strlen(optarg));
         break;
-      case 'o':
-        strncpy(com->output_path, optarg, strlen(optarg));
-        break;
-      case 'x':
-        com->delete_when_done = true;
-        break;
-      case 'm':
-        com->multilevel = true;
-        break;
       case 's':
         com->integrity_check = false;
         break;
@@ -177,7 +255,7 @@ int read_command(command *com, int argc, char **argv) {
         break;
       case 'h':
         // Print help
-        help();
+        com->help = true;
         break;
       case ':':
         sprintf(error, "Missing argument for -%c\n", optopt);
@@ -188,6 +266,7 @@ int read_command(command *com, int argc, char **argv) {
         printf("%s\n", error);
         return optopt;
       default:
+        printf("DEFAULT\n");
         break;
     }
   }
@@ -195,8 +274,8 @@ int read_command(command *com, int argc, char **argv) {
 }
 
 /*
- * Reads instructions from input and adds them to the given instructions struct. Returns total
- * number of instructions.
+ * Reads instructions from input until user types "done" and adds them to the given
+ * instructions struct. Returns total number of instructions.
  */
 int instruction_input_loop(instruction **instructions, int num_instructions) {
   if(!instructions) {
@@ -221,7 +300,10 @@ int instruction_input_loop(instruction **instructions, int num_instructions) {
     command *com = (command *)malloc(sizeof(command));
     int com_status = read_command(com, argc, argv);
     if(com_status != 0) {
-      printf("Please re-enter instruction:\n");
+      printf("Re-enter instruction:\n");
+    } else if (com->help) {
+      instruction_help();
+      printf("\nEnter an instruction:\n");
     } else {
       if(com->remove_last && num_instructions > 0) {
         // Remove last instruction
@@ -234,14 +316,17 @@ int instruction_input_loop(instruction **instructions, int num_instructions) {
         // Cannot remove last instruction
         printf("No previous instruction to remove\n");
       } else if(num_instructions < 10) {
-        // Add new instruction
-        if(strlen(com->encrypt_key) == 0) {
-          get_key(com->encrypt_key);
+        // Check input is valid
+        if(strlen(com->encrypt_key) > 0 || com->dimension > 0 || !com->integrity_check) {
+          if(strlen(com->encrypt_key) == 0) {
+            get_key(com->encrypt_key);
+          }
+          remove_newline(com->encrypt_key);
+          instructions[num_instructions] = create_instruction(com->dimension, com->encrypt_key, com->integrity_check);
+          num_instructions += 1;
+        } else {
+          printf("Invalid instruction\n");
         }
-        remove_newline(com->encrypt_key);
-        instructions[num_instructions] = create_instruction(com->dimension, com->encrypt_key, com->integrity_check);
-        num_instructions += 1;
-        memset(com->encrypt_key, '\0', strlen(com->encrypt_key));
       } else if(num_instructions >= 10) {
         // Cannot add new instruction
         printf("Cannot add more than %d instructions.", MAX_INSTRUCTIONS);
@@ -249,8 +334,8 @@ int instruction_input_loop(instruction **instructions, int num_instructions) {
       print_instructions(instructions, num_instructions);
       printf("\nEnter an instruction:\n");
     }
+    memset(com->encrypt_key, '\0', strlen(com->encrypt_key));
     free(com->encrypt_key);
-    free(com->output_path);
     free(com);
     fgets(input, BUFFER, stdin);
   }
@@ -259,6 +344,9 @@ int instruction_input_loop(instruction **instructions, int num_instructions) {
   return num_instructions;
 }
 
+/*
+ * Facilitates generating instructions and running cipher.
+ */
 int main(int argc, char **argv) {
   clock_t start = clock();
   printf("Start time: %d\n\n", (int) (start *1000 / CLOCKS_PER_SEC));
@@ -276,47 +364,45 @@ int main(int argc, char **argv) {
     snprintf(error, BUFFER, "File \"%s\" not found. First argument must be a file.", absolute_path);
     fatal(LOG_OUTPUT, error);
   }
-  command *com = (command *)malloc(sizeof(command));
-  int com_status = read_command(com, argc, argv);
+  initial_state *init = (initial_state *)malloc(sizeof(initial_state));
+  int init_status = read_initial_state(init, argc, argv);
   // Check for getopt errors
-  if(com_status != 0) {
-    free(com);
+  if(init_status != 0) {
+    free(init);
     char error[BUFFER];
-    snprintf(error, BUFFER, "Fatal error on option -%c. Exiting.\n", com_status);
+    snprintf(error, BUFFER, "Fatal error on option -%c. Exiting.\n", init_status);
     fatal(LOG_OUTPUT, error);
   }
   // Check if mode specified
-  if(com->encrypt < 0) {
-    free(com);
+  if(init->encrypt < 0) {
+    free(init);
     fatal(LOG_OUTPUT, "Invalid usage - must specify encrypt (-e) or decrypt (-d) mode.");
-  } else {
-    encrypt = com->encrypt;
   }
   printf("File name: %s\n", file_name);
   printf("File size: %ld bytes\n", file_len);
-  printf("Mode: %s\n", encrypt ? "encrypt" : "decrypt");
+  printf("Mode: %s\n", init->encrypt ? "encrypt" : "decrypt");
   cipher ciph = create_cipher(file_name, just_path, file_len);
   //app welcome
-  help();
+  main_help();
   instruction **instructions = (instruction **)malloc(sizeof(instruction *) * MAX_INSTRUCTIONS);
   int num_instructions = 0;
   // If first instruction included in program execution statement, add to instruction set,
   // else enter instruction input loop
-  if(strlen(com->encrypt_key) > 0 || com->dimension > 0 || !com->integrity_check) {
+  if(strlen(init->encrypt_key) > 0 || init->dimension > 0 || !init->integrity_check) {
     // Check if need key input
-    if(strlen(com->encrypt_key) == 0) {
-      get_key(com->encrypt_key);
+    if(strlen(init->encrypt_key) == 0) {
+      get_key(init->encrypt_key);
     }
-    remove_newline(com->encrypt_key);
-    instructions[0] = create_instruction(com->dimension, com->encrypt_key, com->integrity_check);
+    remove_newline(init->encrypt_key);
+    instructions[0] = create_instruction(init->dimension, init->encrypt_key, init->integrity_check);
     num_instructions += 1;
-    memset(com->encrypt_key, '\0', strlen(com->encrypt_key));
+    memset(init->encrypt_key, '\0', strlen(init->encrypt_key));
   } else {
-    com->multilevel = true;
+    init->multilevel = true;
   }
   print_instructions(instructions, num_instructions);
   // If multilevel encryption flag set, enter instruction input loop
-  if(com->multilevel) {
+  if(init->multilevel) {
     num_instructions = instruction_input_loop(instructions, num_instructions);
   }
   while(num_instructions <= 0) {
@@ -324,21 +410,21 @@ int main(int argc, char **argv) {
     num_instructions = instruction_input_loop(instructions, num_instructions);
   }
   set_instructions(&ciph, instructions, num_instructions);
-  if(com->encrypt) {
-    printf("Encrypting...\n");
+  if(init->encrypt) {
+    printf("\nEncrypting...\n");
   } else {
-    printf("Decrypting...\n");
+    printf("\nDecrypting...\n");
   }
-  int ciph_status = run(&ciph, com->encrypt);
+  int ciph_status = run(&ciph, init->encrypt);
   clean_instructions(instructions, num_instructions);
   close_cipher(&ciph);
-  free(com->encrypt_key);
-  free(com->output_path);
+  free(init->encrypt_key);
+  free(init->output_path);
   free(processed[0]);
   free(processed[1]);
   free(processed);
-  free(com);
-  free(instructions);
+  free(init);
+  free_instructions(instructions, num_instructions);
   clock_t difference = clock() - start;
   double sec = (double)difference / CLOCKS_PER_SEC;
   printf("Elapsed time (s): %.2lf\n", sec);
