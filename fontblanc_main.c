@@ -66,14 +66,16 @@ void free_instructions(instruction **instructions, int num_instructions) {
 }
 
 
-void print_instructions(instruction **instructions, int num_instructions, boolean encrypt) {
+void print_instructions(instruction **instructions, int num_instructions) {
+  if(num_instructions <= 0) {
+    printf("\nNo instructions added\n");
+  }
   for(int i = 0; i < num_instructions; i++) {
     instruction *ins = instructions[i];
     if(!ins) {
       return;
     }
     printf("\n| Instruction #%d |\n", i + 1);
-    printf("Mode: %s\n", encrypt ? "encrypt" : "decrypt");
     printf("Key: %s\n", ins->encrypt_key);
     printf("Matrix dimension: ");
     if(ins->dimension > 0) {
@@ -230,7 +232,7 @@ int instruction_input_loop(instruction **instructions, int num_instructions) {
         printf("Removed instruction #%d\n", num_instructions + 1);
       } else if(com->remove_last && num_instructions <= 0) {
         // Cannot remove last instruction
-        printf("No previous instruction to remove.\n");
+        printf("No previous instruction to remove\n");
       } else if(num_instructions < 10) {
         // Add new instruction
         if(strlen(com->encrypt_key) == 0) {
@@ -244,7 +246,7 @@ int instruction_input_loop(instruction **instructions, int num_instructions) {
         // Cannot add new instruction
         printf("Cannot add more than %d instructions.", MAX_INSTRUCTIONS);
       }
-      print_instructions(instructions, num_instructions, encrypt);
+      print_instructions(instructions, num_instructions);
       printf("\nEnter an instruction:\n");
     }
     free(com->encrypt_key);
@@ -296,17 +298,29 @@ int main(int argc, char **argv) {
   cipher ciph = create_cipher(file_name, just_path, file_len);
   //app welcome
   help();
-  if(strlen(com->encrypt_key) == 0) {
-    get_key(com->encrypt_key);
-  }
-  remove_newline(com->encrypt_key);
   instruction **instructions = (instruction **)malloc(sizeof(instruction *) * MAX_INSTRUCTIONS);
-  int num_instructions = 1;
-  instructions[0] = create_instruction(com->dimension, com->encrypt_key, com->integrity_check);
-  print_instructions(instructions, 1, com->encrypt);
-  memset(com->encrypt_key, '\0', strlen(com->encrypt_key));
+  int num_instructions = 0;
+  // If first instruction included in program execution statement, add to instruction set,
+  // else enter instruction input loop
+  if(strlen(com->encrypt_key) > 0 || com->dimension > 0 || !com->integrity_check) {
+    // Check if need key input
+    if(strlen(com->encrypt_key) == 0) {
+      get_key(com->encrypt_key);
+    }
+    remove_newline(com->encrypt_key);
+    instructions[0] = create_instruction(com->dimension, com->encrypt_key, com->integrity_check);
+    num_instructions += 1;
+    memset(com->encrypt_key, '\0', strlen(com->encrypt_key));
+  } else {
+    com->multilevel = true;
+  }
+  print_instructions(instructions, num_instructions);
   // If multilevel encryption flag set, enter instruction input loop
   if(com->multilevel) {
+    num_instructions = instruction_input_loop(instructions, num_instructions);
+  }
+  while(num_instructions <= 0) {
+    printf("\nMust add at least one instruction\n");
     num_instructions = instruction_input_loop(instructions, num_instructions);
   }
   set_instructions(&ciph, instructions, num_instructions);
