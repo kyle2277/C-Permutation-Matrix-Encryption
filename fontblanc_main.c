@@ -65,9 +65,11 @@ void splash() {
   }
 }
 
-void main_help() {}
+void main_help() {
+  printf("Print help here\n");
+}
 void instruction_help() {
-  printf("Some instruction help.\n");
+  printf("Print instruction help here\n");
 }
 
 /*

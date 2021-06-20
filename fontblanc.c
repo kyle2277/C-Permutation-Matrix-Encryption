@@ -336,8 +336,8 @@ struct PMAT *gen_permut_mat(cipher *c, int dimension, boolean inverse) {
     for(int k = 0; k < 2*dimension; k+=2) {
         acc[dimension_counter] = 1.0;
         if(list_len == 1) {
-            i_val = i_head->number;
-            j_val = j_head->number;
+            i_val = pull_node(true, 0);
+            j_val = pull_node(false, 0);
         } else {
             int row = (charAt(linked, k)-'0');
             row = ((row+1) * dimension) % list_len;
@@ -381,6 +381,7 @@ struct PMAT *gen_permut_mat(cipher *c, int dimension, boolean inverse) {
       double *check_vec = cc_mv(dimension, dimension, dimension, resultant_m->i->icc, resultant_m->j->icc,
                                 resultant_m->v->acc, resultant_m->check_vec_bef);
       memcpy(resultant_m->check_vec_aft, check_vec, sizeof(double)*dimension);
+      free(check_vec);
     }
     clock_t diff_write = clock() - start_write;
     time_total_write += diff_write;
@@ -428,6 +429,10 @@ int pull_node(boolean row, int count) {
     for(int i = 0; i < count; ++i) {
         cur = cur->next;
     }
+    if(!cur) {
+      fatal(LOG_OUTPUT, "Linked list null pointer reference.");
+      exit(-1);
+    }
     int num = cur->number;
     if(!cur->last && cur->next) { //first node in list
         if(row) {
@@ -442,9 +447,7 @@ int pull_node(boolean row, int count) {
     } else if(cur->next && cur->last){ //middle node in list
         cur->last->next = cur->next;
         cur->next->last = cur->last;
-    } else { //node is null
-        fatal(LOG_OUTPUT, "Linked list null pointer error.");
-    }
+    } // Else, last node in list
     //free the node later
     trash[trash_indx] = cur;
     trash_indx++;
@@ -496,6 +499,7 @@ struct PMAT *orthogonal_transpose(struct PMAT *mat) {
   memcpy(t_m->j->icc, t_jcc, sizeof(int)*(dimension+1));
   memcpy(t_m->v->acc, mat->v->acc, sizeof(double)*dimension);
   memcpy(t_m->check_vec_bef, mat->check_vec_bef, sizeof(double)*dimension);
+  purge_mat(mat);
   return t_m;
 }
 
@@ -579,7 +583,7 @@ void fixed_distributor(cipher *c, int coeff, int dimension) {
   for(int i = 2; i <= sequences+1; i++) {
     //i + dimension = log base
     char *logBaseOutput = gen_log_base_str(c, (i+approx));
-    sprintf(linked, "%s%s", linked, logBaseOutput);
+    strncat(linked, logBaseOutput, strlen(logBaseOutput));
     free(logBaseOutput);
   }
   return linked;
@@ -613,6 +617,7 @@ void permut_cipher(cipher *c, int dimension) {
   }
   memcpy(data+ref, data_result, (size_t)dimension);
   free(data_result);
+  free(result);
   c->bytes_processed += dimension;
   c->bytes_remaining -= dimension;
 }
