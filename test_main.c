@@ -1,6 +1,8 @@
-//
-// Created by kylej on 6/14/19.
-//
+/*
+ * test_main.c
+ * Kyle Won
+ * Test main for FontBlanc_C. Replaced in master by merge with dev-cli-2.0 branch.
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include "fontblanc.h"
