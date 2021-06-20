@@ -3,14 +3,15 @@
 #include <stdio.h>
 #include "Dependencies/csparse.h"
 
-#define LOG_OUTPUT "log.txt"
-//Increase if crashing ***MUST BE HIGHER THAN MAX DIMENSION***
-#define MAPSIZE 1025
+#define LOG_OUTPUT "fontblanc_log.txt"
 //Changes size of largest possible matrix
-#define MAX_DIMENSION 1024
-#define ENCRYPT_TAG "e_"
+#define MAX_DIMENSION 4096
+//Increase if crashing ***MUST BE HIGHER THAN MAX DIMENSION***
+#define MAPSIZE MAX_DIMENSION + 1
 #define ENCRYPT_EXT ".fbz"
-#define DECRYPT_TAG ""
+#define DECRYPT_TAG "d_"
+#define BUFFER 256
+#define MAX_INSTRUCTIONS 10
 
 typedef enum { false, true } boolean;
 
@@ -38,10 +39,11 @@ struct PMAT_V {
 
 typedef struct instruction {
     int dimension;
-    char encrypt_key[];
+    boolean integrity_check;
+    char encrypt_key[BUFFER];
 } instruction;
 
-typedef struct {
+typedef struct cipher{
     struct PMAT *permut_map[MAPSIZE];
     struct PMAT *inv_permut_map[MAPSIZE];
     char *log_path;
@@ -55,6 +57,7 @@ typedef struct {
     unsigned char *file_bytes;
     instruction **instructions;
     int num_instructions;
+    boolean integrity_check;
 } cipher;
 
 typedef struct node {
@@ -83,7 +86,7 @@ node *next_node(node *last, int dimension);
 char charAt(char *ch, int index);
 void empty_trash();
 int pull_node(boolean row, int count);
-double *transform_vec(int dimension, unsigned char bytes[], struct PMAT *pm);
+double *transform_vec(int dimension, unsigned char bytes[], struct PMAT *pm, boolean integrity_check);
 struct PMAT *orthogonal_transpose(struct PMAT *mat);
 int dot_product(double a[], double b[], int dimension);
 struct PMAT *init_permut_mat(int dimension);
@@ -92,6 +95,5 @@ void rand_distributor(cipher *c, int coeff);
 void fixed_distributor(cipher *c, int coeff, int dimension);
 void permut_cipher(cipher *c, int dimension);
 struct PMAT *lookup(cipher *c, int dimension);
-instruction *create_instruction(int dimension, char *encryptKey);
-
+instruction *create_instruction(int dimension, char *encrypt_key, boolean integrity_check);
 #endif
