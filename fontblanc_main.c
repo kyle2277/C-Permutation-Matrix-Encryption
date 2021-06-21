@@ -284,7 +284,7 @@ int main(int argc, char **argv) {
   printf("File name: %s\n", file_name);
   printf("File size: %ld bytes\n", file_len);
   printf("Mode: %s\n", init->encrypt ? "encrypt" : "decrypt");
-  cipher ciph = create_cipher(file_name, just_path, file_len);
+  cipher *ciph = create_cipher(file_name, just_path, file_len);
   //app welcome
   main_help();
   instruction **instructions = (instruction **)malloc(sizeof(instruction *) * MAX_INSTRUCTIONS);
@@ -312,15 +312,15 @@ int main(int argc, char **argv) {
     printf("\nMust add at least one instruction\n");
     num_instructions = instruction_input_loop(instructions, num_instructions);
   }
-  set_instructions(&ciph, instructions, num_instructions);
+  set_instructions(ciph, instructions, num_instructions);
   if(init->encrypt) {
     printf("\nEncrypting...\n");
   } else {
     printf("\nDecrypting...\n");
   }
-  int ciph_status = run(&ciph, init->encrypt);
+  int ciph_status = run(ciph, init->encrypt);
   clean_instructions(instructions, num_instructions);
-  close_cipher(&ciph);
+  close_cipher(ciph);
   free(init->encrypt_key);
   free(init->output_path);
   free(processed[0]);

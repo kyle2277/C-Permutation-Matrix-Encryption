@@ -12,7 +12,6 @@
 #include <time.h>
 #include "Dependencies/csparse.h"
 
-#define BUFFER 255
 #define MAX_INSTRUCTIONS 10
 
 void splash() {
