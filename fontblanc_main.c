@@ -36,6 +36,9 @@ void splash() {
   }
 }
 
+void usage_help() {
+  printf("Print usage help here.\n");
+}
 void main_help() {
   printf("Print help here\n");
 }
@@ -253,7 +256,10 @@ int instruction_input_loop(instruction **instructions, int num_instructions) {
 int main(int argc, char **argv) {
   clock_t start = clock();
   printf("Start time: %d\n\n", (int) (start *1000 / CLOCKS_PER_SEC));
-
+  if(!argv[1]) {
+    usage_help();
+    exit(1);
+  }
   // Parse input file path
   char *absolute_path = argv[1];
   char **processed = parse_f_path(absolute_path);
@@ -278,7 +284,9 @@ int main(int argc, char **argv) {
   // Check if mode specified
   if(init->encrypt < 0) {
     free(init);
-    fatal(LOG_OUTPUT, "Invalid usage - must specify encrypt (-e) or decrypt (-d) mode.");
+    usage_help();
+    exit(1);
+    //fatal(LOG_OUTPUT, "Invalid usage - must specify encrypt (-e) or decrypt (-d) mode.");
   }
   printf("File name: %s\n", file_name);
   printf("File size: %ld bytes\n", file_len);
