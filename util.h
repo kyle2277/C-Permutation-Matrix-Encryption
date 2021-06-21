@@ -1,6 +1,6 @@
 /*
  * util.h
- * Kyle Won
+ * Copyrite (c) Kyle Won, 2021
  * FontBlanc_C utilies header file.
  */
 

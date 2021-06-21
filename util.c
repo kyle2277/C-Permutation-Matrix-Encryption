@@ -1,11 +1,10 @@
 /*
  * util.c
- * Kyle Won
+ * Copyrite (c) Kyle Won, 2021
  * Miscellaneous general purpose helper functions for FontBlanc_C main and core.
  */
-
-#include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <termios.h>
 #include <time.h>
@@ -58,7 +57,7 @@ void fatal(char *log_path, char *message) {
 // Linked List -------------------------------------------------------------------------------------
 
 /*
- * Allocates the trash to be 2 time given size of linked list to accomodate
+ * Allocates the trash to be 2 time given size of linked list to accommodate
  * for the two "row" and "column" lists.
  */
 void init_ll_trash(int ll_size) {
@@ -85,9 +84,9 @@ node *build_ll(node *last, int dimension) {
 }
 
 /*
- * Fetches a node from the given linked list and deletes node from the list
- * Takes whether the list is the row or column list and the node index
- * Returns the number corresponding to the node in question
+ * Fetches a node from the given linked list and deletes node from the list.
+ * Takes whether the list is the row or column list and the node index.
+ * Returns the number corresponding to the node in question.
  */
 int pull_node(node **head, int count) {
   node *cur = *head;
@@ -105,6 +104,9 @@ int pull_node(node **head, int count) {
   return num;
 }
 
+/*
+ * Removes the given node from the linked list of the given head node.
+ */
 void remove_node(node **head, node *n) {
   if(!n) {
     return;
@@ -147,7 +149,7 @@ void free_ll_trash() {
 char *get_extension(char *file_name) {
   size_t name_len = strlen(file_name);
   char *ptr = file_name + name_len;
-  int ext_len;
+  size_t ext_len;
   for(ext_len = 0; *(ptr-1) != '.' && ext_len < name_len; ext_len++) {
     ptr--;
   }
@@ -165,13 +167,13 @@ void remove_extension(char *file_name, char *extension) {
 }
 
 /*
- * Separates the file path from the file name
- * Returns file name and file path up to the name
+ * Separates the file path from the file name.
+ * Returns file name and file path up to the name.
  */
 char **parse_f_path(char *file_path) {
   size_t path_len = strlen(file_path);
   char *ptr = file_path + path_len;
-  int name_len;
+  size_t name_len;
   for(name_len = 0; *(ptr-1) != '/' && name_len < path_len; name_len++) {
     ptr--;
   }

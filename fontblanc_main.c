@@ -1,6 +1,6 @@
 /*
  * fontblanc_main.c
- * Kyle Won
+ * Copyrite (c) Kyle Won, 2021
  * Command line user interaction controls for FontBlanc_C. Contains main function.
  */
 
@@ -177,7 +177,7 @@ int read_command(command *com, int argc, char **argv) {
 }
 
 /*
- * Reads instructions from input until user types "done" and adds them to the given
+ * Reads instructions from input until user types "done" and adds them to the given.
  * instructions struct. Returns total number of instructions.
  */
 int instruction_input_loop(instruction **instructions, int num_instructions) {
@@ -259,7 +259,6 @@ int main(int argc, char **argv) {
   char **processed = parse_f_path(absolute_path);
   char *file_name = processed[0];
   char *just_path = processed[1];
-  boolean interactive_mode = false;
   long file_len = get_f_len(absolute_path);
   // Check if input file exists
   if(file_len < 0) {
