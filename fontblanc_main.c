@@ -1,12 +1,13 @@
 /*
  * fontblanc_main.c
- * Kyle Won
+ * Copyrite (c) Kyle Won, 2021
  * Command line user interaction controls for FontBlanc_C. Contains main function.
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include "fontblanc.h"
+#include "util.h"
 #include <math.h>
 #include <unistd.h>
 #include <string.h>
@@ -17,36 +18,6 @@
 
 #define INIT_OPTIONS "iedD:k:o:xmsh"
 #define COMMAND_OPTIONS ":k:D:shr"
-
-/*
- * Contains global information from initial arguments. Can include first instruction.
- */
-typedef struct initial_state {
-  int encrypt;
-  // Permuation matrix dimmension, 0 if variable
-  int dimension;
-  boolean delete_when_done;
-  // Specifies whether to perform data integrity check after every linear transformation
-  boolean integrity_check;
-  // Specifies whether to enter instruction input loop for multiple passes
-  boolean multilevel;
-  char *encrypt_key;
-  char *output_path;
-} initial_state;
-
-/*
- * Contains information for one instruction (one pass of encryption/decryption).
- */
-typedef struct command {
-  // Permuation matrix dimmension, 0 if variable
-  int dimension;
-  char *encrypt_key;
-  // Specifies whether to perform data integrity check after every linear transformation
-  boolean integrity_check;
-  // Specifies whether to remove last instruction
-  boolean remove_last;
-  boolean help;
-} command;
 
 /*
  * Prints ASCII art splash.
@@ -65,81 +36,14 @@ void splash() {
   }
 }
 
+void usage_help() {
+  printf("Print usage help here.\n");
+}
 void main_help() {
   printf("Print help here\n");
 }
 void instruction_help() {
   printf("Print instruction help here\n");
-}
-
-/*
- * Zero's out encrypt key field in every instruction.
- */
-void clean_instructions(instruction **instructions, int num_instructions) {
-  for(int i = 0; i < num_instructions; i++) {
-    instruction *cur = instructions[i];
-    memset(cur->encrypt_key, '\0', strlen(cur->encrypt_key));
-  }
-}
-
-/*
- * Free's dynamically allocated instruction memory.
- */
-void free_instructions(instruction **instructions, int num_instructions) {
-  for(int i = 0; i < num_instructions; i++) {
-    free(instructions[i]);
-  }
-  free(instructions);
-}
-
-/*
- * Prints specified number of instructions to stdout.
- */
-void print_instructions(instruction **instructions, int num_instructions) {
-  if(num_instructions <= 0) {
-    printf("\nNo instructions added\n");
-  }
-  for(int i = 0; i < num_instructions; i++) {
-    instruction *ins = instructions[i];
-    if(!ins) {
-      return;
-    }
-    printf("\n| Instruction #%d |\n", i + 1);
-    printf("Key: %s\n", ins->encrypt_key);
-    printf("Matrix dimension: ");
-    if(ins->dimension > 0) {
-      printf("%d\n", ins->dimension);
-    } else {
-      printf("variable\n");
-    }
-    printf("Data integrity checks: %s\n", ins->integrity_check ? "on" : "off");
-  }
-}
-
-/*
- * Uses termios to disable terminal echoing and reads encrypt key from user input.
- */
-void get_key(char *encrypt_key) {
-  printf("Enter key: ");
-  struct termios term;
-  tcgetattr(fileno(stdin), &term);
-  term.c_lflag &= ~ECHO;
-  tcsetattr(fileno(stdin), 0, &term);
-  if(!fgets(encrypt_key, BUFFER, stdin)) {
-    fatal(LOG_OUTPUT, "Error reading key input.");
-  }
-  term.c_lflag |= ECHO;
-  tcsetattr(fileno(stdin), 0, &term);
-}
-
-/*
- * Removes newline character, if it exists, from the end of the given string.
- */
-void remove_newline(char *encrypt_key) {
-  size_t key_len = strlen(encrypt_key);
-  if(*(encrypt_key + (key_len - 1)) == '\n') {
-    *(encrypt_key + (key_len - 1)) = '\0';
-  }
 }
 
 /*
@@ -177,10 +81,10 @@ int read_initial_state(initial_state *init, int argc, char **argv) {
         break;
       case 'D':
         int_arg = (int)strtol(optarg, &remaining, 10);
-        if (int_arg > 0) {
+        if (int_arg >= 0) {
           init->dimension = int_arg;
         } else {
-          fatal(LOG_OUTPUT, "Argument for dimension option (-D) must be positive a integer.");
+          fatal(LOG_OUTPUT, "Argument for dimension option (-D) must be a positive integer or 0.");
         }
         break;
       case 'k':
@@ -224,7 +128,7 @@ int read_initial_state(initial_state *init, int argc, char **argv) {
  */
 int read_command(command *com, int argc, char **argv) {
   com->encrypt_key = (char *)calloc(BUFFER, sizeof(char));
-  com->dimension = 0;
+  com->dimension = -1;
   com->integrity_check = true;
   com->remove_last = false;
   com->help = false;
@@ -240,10 +144,10 @@ int read_command(command *com, int argc, char **argv) {
     switch (opt_status) {
       case 'D':
         int_arg = (int)strtol(optarg, &remaining, 10);
-        if (int_arg > 0) {
+        if (int_arg >= 0) {
           com->dimension = int_arg;
         } else {
-          fatal(LOG_OUTPUT, "Argument for dimension option (-D) must be positive a integer.");
+          fatal(LOG_OUTPUT, "Argument for dimension option (-D) must be a positive integer or 0.");
         }
         break;
       case 'k':
@@ -276,7 +180,7 @@ int read_command(command *com, int argc, char **argv) {
 }
 
 /*
- * Reads instructions from input until user types "done" and adds them to the given
+ * Reads instructions from input until user types "done" and adds them to the given.
  * instructions struct. Returns total number of instructions.
  */
 int instruction_input_loop(instruction **instructions, int num_instructions) {
@@ -319,7 +223,7 @@ int instruction_input_loop(instruction **instructions, int num_instructions) {
         printf("No previous instruction to remove\n");
       } else if(num_instructions < 10) {
         // Check input is valid
-        if(strlen(com->encrypt_key) > 0 || com->dimension > 0 || !com->integrity_check) {
+        if(strlen(com->encrypt_key) > 0 || com->dimension >= 0 || !com->integrity_check) {
           if(strlen(com->encrypt_key) == 0) {
             get_key(com->encrypt_key);
           }
@@ -352,13 +256,15 @@ int instruction_input_loop(instruction **instructions, int num_instructions) {
 int main(int argc, char **argv) {
   clock_t start = clock();
   printf("Start time: %d\n\n", (int) (start *1000 / CLOCKS_PER_SEC));
-
+  if(!argv[1]) {
+    usage_help();
+    exit(1);
+  }
   // Parse input file path
   char *absolute_path = argv[1];
   char **processed = parse_f_path(absolute_path);
   char *file_name = processed[0];
   char *just_path = processed[1];
-  boolean interactive_mode = false;
   long file_len = get_f_len(absolute_path);
   // Check if input file exists
   if(file_len < 0) {
@@ -378,12 +284,14 @@ int main(int argc, char **argv) {
   // Check if mode specified
   if(init->encrypt < 0) {
     free(init);
-    fatal(LOG_OUTPUT, "Invalid usage - must specify encrypt (-e) or decrypt (-d) mode.");
+    usage_help();
+    exit(1);
+    //fatal(LOG_OUTPUT, "Invalid usage - must specify encrypt (-e) or decrypt (-d) mode.");
   }
   printf("File name: %s\n", file_name);
   printf("File size: %ld bytes\n", file_len);
   printf("Mode: %s\n", init->encrypt ? "encrypt" : "decrypt");
-  cipher ciph = create_cipher(file_name, just_path, file_len);
+  cipher *ciph = create_cipher(file_name, just_path, file_len);
   //app welcome
   main_help();
   instruction **instructions = (instruction **)malloc(sizeof(instruction *) * MAX_INSTRUCTIONS);
@@ -411,15 +319,15 @@ int main(int argc, char **argv) {
     printf("\nMust add at least one instruction\n");
     num_instructions = instruction_input_loop(instructions, num_instructions);
   }
-  set_instructions(&ciph, instructions, num_instructions);
+  set_instructions(ciph, instructions, num_instructions);
   if(init->encrypt) {
     printf("\nEncrypting...\n");
   } else {
     printf("\nDecrypting...\n");
   }
-  int ciph_status = run(&ciph, init->encrypt);
+  int ciph_status = run(ciph, init->encrypt);
   clean_instructions(instructions, num_instructions);
-  close_cipher(&ciph);
+  close_cipher(ciph);
   free(init->encrypt_key);
   free(init->output_path);
   free(processed[0]);
