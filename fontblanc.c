@@ -11,6 +11,8 @@
 #include <unistd.h>
 #include <math.h>
 #include <time.h>
+#include <pthread.h>
+#include <semaphore.h>
 #include "fontblanc.h"
 #include "Dependencies/st_to_cc.h"
 #include "Dependencies/csparse.h"
@@ -19,6 +21,18 @@ clock_t time_total_gen;
 clock_t time_total_write;
 clock_t time_transformation;
 clock_t time_p_loop;
+clock_t time_parallel_computation;
+int thread_num = 1;
+
+// Synchronization variables
+// Semaphore controls max number of threads running at a time
+sem_t *thread_sema;
+// Lock enforces mutual exclusion for modifying cipher
+pthread_mutex_t *cipher_lock;
+// Condvar prevents main thread from terminating before child threads are finished
+pthread_cond_t *condvar;
+// Timer lock
+pthread_mutex_t *timer_lock;
 
 // Constructors and Destructors
 
@@ -26,10 +40,10 @@ clock_t time_p_loop;
  * Create a cipher structure for the given file with the given encryption key.
  * Returns the cipher structure.
  */
-cipher *create_cipher(char *file_name, char *file_path, long file_len) {
+cipher *create_cipher(char *file_name, char *file_path, long file_len, unsigned int num_threads) {
   cipher *c = malloc(sizeof(cipher));
   if(!c) {
-    fatal(LOG_OUTPUT, "Dynamic memory allocation error in create_cipher(), fontblanc.c"); exit(-1);
+    fatal(LOG_OUTPUT, "Dynamic memory allocation error in create_cipher(), fontblanc.c"); exit(EXIT_FAILURE);
   }
   c->log_path = LOG_OUTPUT;
   c->file_name = file_name;
@@ -37,14 +51,26 @@ cipher *create_cipher(char *file_name, char *file_path, long file_len) {
   c->file_len = file_len;
   c->bytes_remaining = file_len;
   c->bytes_processed = 0;
+  c->working_offset = 0;
   c->instructions = NULL;
   c->num_instructions = 0;
+  c->thread_counter = 1;
   c->integrity_check = true;
   c->permut_map = (struct PMAT **)calloc(MAPSIZE, sizeof(struct PMAT *));
   if(!c->permut_map) {
-    fatal(LOG_OUTPUT, "Dynamic memory allocation error in create_cipher(), fontblanc.c"); exit(-1);
+    fatal(LOG_OUTPUT, "Dynamic memory allocation error in create_cipher(), fontblanc.c"); exit(EXIT_FAILURE);
   }
   init_ll_trash(MAX_DIMENSION);
+  // Initialize thread synchronization variables
+  thread_sema = (sem_t *)malloc(sizeof(sem_t));
+  sem_init(thread_sema, 0, num_threads);
+  cipher_lock = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
+  pthread_mutex_init(cipher_lock, NULL);
+  condvar = (pthread_cond_t *)malloc(sizeof(pthread_cond_t));
+  pthread_cond_init(condvar, NULL);
+  timer_lock = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
+  pthread_mutex_init(timer_lock, NULL);
+
   // DEBUG OUTPUT
   //debug = fopen("FB_WO_debug.txt", "a");
   return c;
@@ -59,8 +85,15 @@ int close_cipher(cipher *c) {
   //free(c->instructions);
   free(c->file_bytes);
   free(c->permut_map);
+  sem_destroy(thread_sema);
+  free(thread_sema);
+  pthread_mutex_destroy(cipher_lock);
+  free(cipher_lock);
+  pthread_cond_destroy(condvar);
+  free(condvar);
+  pthread_mutex_destroy(timer_lock);
+  free(timer_lock);
   free(c);
-  free_ll_trash();
   return 1;
 }
 
@@ -70,26 +103,28 @@ int close_cipher(cipher *c) {
  * Run the process. Takes cipher and whether tp encrypt or not.
  */
 int run(cipher *c, boolean encrypt) {
-    int coeff = encrypt ? 1 : -1;
-    time_total_gen = 0;
-    time_total_write = 0;
-    time_transformation = 0;
-    time_p_loop = 0;
-    unsigned char *file_bytes = read_input(c);
-    c->file_bytes = file_bytes;
-    read_instructions(c, coeff);
-    write_output(c, coeff);
-    printf("Time generating permutation matrices (ms): %.2lf\n", (double)time_total_gen*1000/CLOCKS_PER_SEC);
-    printf("Time writing matrices to file (ms): %.2lf\n", (double)time_total_write*1000/CLOCKS_PER_SEC);
-    printf("Time performing linear transformation (ms): %.2lf\n", (double)time_transformation*1000/CLOCKS_PER_SEC);
-    printf("Time in node pull loop (ms): %.2lf\n", (double)time_p_loop*1000/CLOCKS_PER_SEC);
-    return 1;
+  int coeff = encrypt ? 1 : -1;
+  time_total_gen = 0;
+  time_total_write = 0;
+  time_transformation = 0;
+  time_p_loop = 0;
+  time_parallel_computation = 0;
+  unsigned char *file_bytes = read_input(c);
+  c->file_bytes = file_bytes;
+  read_instructions(c, coeff);
+  write_output(c, coeff);
+  printf("Time generating permutation matrices (ms): %.2lf\n", (double)time_total_gen*1000/CLOCKS_PER_SEC);
+  printf("Time writing matrices to file (ms): %.2lf\n", (double)time_total_write*1000/CLOCKS_PER_SEC);
+  printf("Time in node pull loop (ms): %.2lf\n", (double)time_p_loop*1000/CLOCKS_PER_SEC);
+  printf("Total time performing linear transformations (ms): %.2lf\n", (double)time_transformation*1000/CLOCKS_PER_SEC);
+  return 1;
 }
 
 /*
  * Process file using pseudo-random matrix dimensions.
  */
 void rand_distributor(cipher *c, int coeff) {
+  clock_t start = clock();
   //create encrypt map of length required for file instead of looping
   //todo limits file size to max size of unsigned int in bytes, ~4GB
   if(c->bytes_remaining > MAX_DIMENSION) {
@@ -99,43 +134,37 @@ void rand_distributor(cipher *c, int coeff) {
     for(int map_itr = 0; c->bytes_remaining >= MAX_DIMENSION; map_itr++) {
       int tmp = (charAt(linked, map_itr % map_len) - '0');
       int dimension = tmp > 1 ? MAX_DIMENSION - (MAX_DIMENSION / tmp) : MAX_DIMENSION;
-      permut_cipher(c, coeff * dimension);
+      run_thread(c, coeff * dimension, false);
     }
     free(linked);
   } else {
     int b = (int) c->bytes_remaining;
     if(b > 0) {
-      permut_cipher(c, coeff*b);
+      pthread_mutex_lock(cipher_lock);
+      while (c->bytes_processed < c->file_len) {
+        pthread_cond_wait(condvar, cipher_lock);
+      }
     }
   }
+  time_parallel_computation = clock() - start;
 }
 
 /*
- * Process file using a fixed matrix dimension.
+ *
  */
-void fixed_distributor(cipher *c, int coeff, int dimension) {
-  while(c->bytes_remaining >= dimension) {
-    permut_cipher(c, coeff*dimension);
+void *thread_func(void *args) {
+  if(!args) {
+    fatal(LOG_OUTPUT, "Null args reference in thread_func(), fontblanc.c."); exit(EXIT_FAILURE);
   }
-  int b = (int)c->bytes_remaining;
-  if(b > 0) {
-    permut_cipher(c, coeff*b);
-  }
-}
-
-/*
- * Facilitates matrix transformations.
- */
-void permut_cipher(cipher *c, int dimension) {
-  long ref = c->bytes_processed;
+  //printf("Running thread_func()...\n");
+  thread_data *td = (thread_data *) args;
+  long offset = td->offset;
+  cipher *c = td->ciph;
+  int dimension = td->dimension;
   unsigned char *data = c->file_bytes;
-  struct PMAT *pm = c->permut_map[abs(dimension)];
-  boolean inverse = dimension < 0;
-  dimension = abs(dimension);
-  struct PMAT *permutation_mat = pm ? pm : gen_permut_mat(c, dimension, inverse);
   unsigned char *data_in = (unsigned char *)calloc((size_t)dimension + 1, sizeof(unsigned char));
-  memcpy(data_in, data+ref, (size_t)sizeof(unsigned char)*dimension);
-  double *result = transform_vec(dimension, data_in, permutation_mat, c->integrity_check);
+  memcpy(data_in, data + offset, (size_t)sizeof(unsigned char)*dimension);
+  double *result = transform_vec(dimension, data_in, td->permutation_mat, c->integrity_check);
   //check for data preservation error
   if(result == NULL) {
     char message[BUFFER];
@@ -149,12 +178,110 @@ void permut_cipher(cipher *c, int dimension) {
   for(int i = 0; i < dimension; i++, ptr++) {
     data_result[i] = (unsigned char)*ptr;
   }
-  memcpy(data+ref, data_result, (size_t)dimension);
+  //printf("Writing data...\n");
+  memcpy(data + offset, data_result, (size_t)dimension);
   free(data_result);
   free(result);
+  free_ll_trash(td->trash);
+  // Acquire data modification lock
+  pthread_mutex_lock(cipher_lock);
   c->bytes_processed += dimension;
-  c->bytes_remaining -= dimension;
+  // Release data modification lock
+  pthread_mutex_unlock(cipher_lock);
+  sem_post(thread_sema);
+  if(c->bytes_processed >= c->file_len) {
+    pthread_cond_broadcast(condvar);
+  }
+  pthread_detach(pthread_self());
+  return NULL;
 }
+
+/*
+ * Creates a thread of the given dimension and runs the matrix transformation.
+ */
+void run_thread(cipher *c, int dimension, boolean last) {
+  // Wait until a thread is available
+  sem_wait(thread_sema);
+  // Create thread info struct
+  //printf("Creating thread #%d\n", thread_num);
+  thread_num += 1;
+  thread_data *td = (thread_data *)malloc(sizeof(thread_data));
+  if(!td) {
+    fatal(LOG_OUTPUT, "Dynamic memory allocation error in fixed_distributor(), fontblanc.c.");
+    exit(EXIT_FAILURE);
+  }
+  boolean inverse = dimension < 0;
+  dimension = abs(dimension);
+  // Acquire cipher data modification lock
+  pthread_mutex_lock(cipher_lock);
+  struct PMAT *pm = c->permut_map[abs(dimension)];
+  td->trash = init_ll_trash(dimension);
+  td->trash_index = 0;
+  td->id = c->thread_counter;
+  td->ciph = c;
+  td->offset = c->working_offset;
+  td->dimension = dimension;
+  td->last = last;
+  td->permutation_mat = pm ? pm : gen_permut_mat(c, dimension, inverse, td);
+  c->working_offset += dimension;
+  c->bytes_remaining -= dimension;
+  // Release data modification lock
+  pthread_mutex_unlock(cipher_lock);
+  pthread_t thread;
+  pthread_create(&thread, NULL, thread_func, (void *) td);
+}
+
+/*
+ * Process file using a fixed matrix dimension.
+ */
+void fixed_distributor(cipher *c, int coeff, int dimension) {
+  clock_t start = clock();
+  while(c->bytes_remaining > dimension) {
+    run_thread(c, coeff * dimension, false);
+  }
+  int b = (int)c->bytes_remaining;
+  if(b > 0) {
+    run_thread(c, coeff * b, true);
+    pthread_mutex_lock(cipher_lock);
+    while(c->bytes_processed < c->file_len) {
+      pthread_cond_wait(condvar, cipher_lock);
+    }
+  }
+  time_parallel_computation = clock() - start;
+}
+
+/*
+ * Facilitates matrix transformations.
+ */
+//void permut_cipher(cipher *c, int dimension) {
+//  long ref = c->bytes_processed;
+//  unsigned char *data = c->file_bytes;
+//  struct PMAT *pm = c->permut_map[abs(dimension)];
+//  boolean inverse = dimension < 0;
+//  dimension = abs(dimension);
+//  struct PMAT *permutation_mat = pm ? pm : gen_permut_mat(c, dimension, inverse);
+//  unsigned char *data_in = (unsigned char *)calloc((size_t)dimension + 1, sizeof(unsigned char));
+//  memcpy(data_in, data+ref, (size_t)sizeof(unsigned char)*dimension);
+//  double *result = transform_vec(dimension, data_in, permutation_mat, c->integrity_check);
+//  //check for data preservation error
+//  if(result == NULL) {
+//    char message[BUFFER];
+//    snprintf(message, BUFFER, "%s\n%ld%s\n%s\n", "Corruption detected in encryption.", c->bytes_remaining,
+//             " unencrypted bytes remaining.", "Aborting.");
+//    fatal(c->log_path, message);
+//  }
+//  double *ptr = result;
+//  unsigned char *data_result = (unsigned char *)realloc(data_in, sizeof(unsigned char)*(dimension + 1));
+//  memset(data_result, '\0', (size_t)dimension + 1);
+//  for(int i = 0; i < dimension; i++, ptr++) {
+//    data_result[i] = (unsigned char)*ptr;
+//  }
+//  memcpy(data+ref, data_result, (size_t)dimension);
+//  free(data_result);
+//  free(result);
+//  c->bytes_processed += dimension;
+//  c->bytes_remaining -= dimension;
+//}
 
 // Matrix operations -------------------------------------------------------------------------------
 
@@ -176,10 +303,32 @@ struct PMAT *init_permut_mat(int dimension) {
 }
 
 /*
+ * Fetches a node from the given linked list and puts the node from the given list in the
+ * current thread's trash array.
+ * Takes whether the list is the row or column list and the node index.
+ * Returns the number corresponding to the node in question.
+ */
+int pull_node(node **head, int count, thread_data *td) {
+  node *cur = *head;
+  for(int i = 0; i < count; ++i) {
+    cur = cur->next;
+  }
+  if(!cur) {
+    fatal(LOG_OUTPUT, "Linked list null pointer reference in remove_node, util.c."); exit(EXIT_FAILURE);
+  }
+  int num = cur->number;
+  remove_node(head, cur);
+  //free the node later
+  td->trash[td->trash_index] = cur;
+  td->trash_index += 1;
+  return num;
+}
+
+/*
  * Takes the dimension of the matrix to create (dimension is negative if inverse).
  * Generates unique n-dimensional permutation matrices from the encryption key.
  */
-struct PMAT *gen_permut_mat(cipher *c, int dimension, boolean inverse) {
+struct PMAT *gen_permut_mat(cipher *c, int dimension, boolean inverse, thread_data *td) {
   printf("%s\n", "gen mat");
   clock_t start = clock();
   char *linked = gen_linked_vals(c, 2*dimension);
@@ -206,15 +355,15 @@ struct PMAT *gen_permut_mat(cipher *c, int dimension, boolean inverse) {
   for(int k = 0; k < 2*dimension; k+=2) {
     acc[dimension_counter] = 1.0;
     if(list_len == 1) {
-      i_val = pull_node(&i_head, 0);
-      j_val = pull_node(&j_head, 0);
+      i_val = pull_node(&i_head, 0, td);
+      j_val = pull_node(&j_head, 0, td);
     } else {
       int row = (charAt(linked, k)-'0');
       row = ((row+1) * dimension) % list_len;
-      i_val = pull_node(&i_head, row);
+      i_val = pull_node(&i_head, row, td);
       int column = (charAt(linked, k+1)-'0');
       column = ((column+1) * dimension) % list_len;
-      j_val = pull_node(&j_head, column);
+      j_val = pull_node(&j_head, column, td);
       dimension_counter++;
       list_len--;
     }
@@ -228,7 +377,7 @@ struct PMAT *gen_permut_mat(cipher *c, int dimension, boolean inverse) {
   //todo segfault without this line????
   jcc[dimension] = dimension;
   free(linked);
-  empty_trash();
+  empty_trash(td->trash, td->trash_index);
   clock_t p_loop_diff = clock() - p_loop;
   time_p_loop += p_loop_diff;
   clock_t difference = clock() - start;

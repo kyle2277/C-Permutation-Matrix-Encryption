@@ -51,21 +51,21 @@ void fatal(char *log_path, char *message) {
   printf("\nFontBlanc - ERROR: %s\n", out);
   fwrite(out, sizeof(char), strlen(out), log);
   fclose(log);
-  exit(-1);
+  exit(EXIT_FAILURE);
 }
 
 // Linked List -------------------------------------------------------------------------------------
 
 /*
  * Allocates the trash to be 2 time given size of linked list to accommodate
- * for the two "row" and "column" lists.
+ * for the two "row" and "column" lists. Returns trash array.
  */
-void init_ll_trash(int ll_size) {
+node **init_ll_trash(int ll_size) {
   node **t = (node **)malloc(sizeof(node *) * (ll_size * 2));
   if(!t) {
-    fatal(LOG_OUTPUT, "Dynamic memory allocation error in init_ll_trash, util.c."); exit(-1);
+    fatal(LOG_OUTPUT, "Dynamic memory allocation error in init_ll_trash, util.c."); exit(EXIT_FAILURE);
   }
-  trash = t;
+  return t;
 }
 
 /*
@@ -81,27 +81,6 @@ node *build_ll(node *last, int dimension) {
     cur->next = build_ll(cur, dimension);
   }
   return cur;
-}
-
-/*
- * Fetches a node from the given linked list and deletes node from the list.
- * Takes whether the list is the row or column list and the node index.
- * Returns the number corresponding to the node in question.
- */
-int pull_node(node **head, int count) {
-  node *cur = *head;
-  for(int i = 0; i < count; ++i) {
-    cur = cur->next;
-  }
-  if(!cur) {
-    fatal(LOG_OUTPUT, "Linked list null pointer reference in remove_node, util.c."); exit(-1);
-  }
-  int num = cur->number;
-  remove_node(head, cur);
-  //free the node later
-  trash[trash_indx] = cur;
-  trash_indx++;
-  return num;
 }
 
 /*
@@ -124,9 +103,10 @@ void remove_node(node **head, node *n) {
 
 /*
  * Frees linked list nodes in trash array.
+ * TODO make separate trash for each thread
  */
-void empty_trash() {
-  for(int i = 0; i < trash_indx; i++) {
+void empty_trash(node **trash, int trash_index) {
+  for(int i = 0; i < trash_index; i++) {
     if(trash[i]) {
       free(trash[i]);
       trash[i] = NULL;
@@ -137,7 +117,7 @@ void empty_trash() {
 /*
  * Frees trash array. Make sure to call empty_trash() first.
  */
-void free_ll_trash() {
+void free_ll_trash(node **trash) {
   free(trash);
 }
 

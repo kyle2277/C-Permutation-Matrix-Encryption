@@ -8,6 +8,7 @@
 #define FONT_BLANC_C_FONTBLANC_H
 
 #include "util.h"
+#include <pthread.h>
 
 // Changes size of largest possible matrix
 #define MAX_DIMENSION 4096
@@ -21,28 +22,28 @@
  * Permutation matrix structure.
  */
 struct PMAT {
-    int dimension;
-    struct PMAT_I *i;
-    struct PMAT_I *j;
-    struct PMAT_V *v;
-    double check_vec_bef[MAX_DIMENSION];
-    double check_vec_aft[MAX_DIMENSION];
+  int dimension;
+  struct PMAT_I *i;
+  struct PMAT_I *j;
+  struct PMAT_V *v;
+  double check_vec_bef[MAX_DIMENSION];
+  double check_vec_aft[MAX_DIMENSION];
 };
 
 /*
  * Matrix index structure.
  */
 struct PMAT_I {
-    int dimension;
-    int icc[]; //row/column indexes
+  int dimension;
+  int icc[]; //row/column indexes
 };
 
 /*
  * Matrix values structure.
  */
 struct PMAT_V {
-    int dimension;
-    double acc[]; //compressed column values
+  int dimension;
+  double acc[]; //compressed column values
 };
 
 /*
@@ -58,34 +59,50 @@ typedef struct instruction {
  * Cipher structure.
  */
 typedef struct cipher{
-    struct PMAT **permut_map;
-    char *log_path;
-    char *file_name;
-    char *file_path;
-    char encrypt_key[1000];
-    int encrypt_key_val;
-    long file_len;
-    long bytes_remaining;
-    long bytes_processed;
-    unsigned char *file_bytes;
-    instruction **instructions;
-    int num_instructions;
-    boolean integrity_check;
+  struct PMAT **permut_map;
+  char *log_path;
+  char *file_name;
+  char *file_path;
+  char encrypt_key[1000];
+  int encrypt_key_val;
+  long file_len;
+  long bytes_remaining;
+  long bytes_processed;
+  long working_offset;
+  unsigned char *file_bytes;
+  instruction **instructions;
+  int num_instructions;
+  // Counter keeps track of order to write data
+  int thread_counter;
+  boolean integrity_check;
 } cipher;
 
+typedef struct thread_data {
+  int id;
+  cipher *ciph;
+  long offset;
+  int dimension;
+  node **trash;
+  int trash_index;
+  struct PMAT *permutation_mat;
+  boolean last;
+} thread_data;
+
 // Constructors and Destructors --------------------------------------------------------------------
-cipher *create_cipher(char *, char *, long);
+cipher *create_cipher(char *, char *, long, unsigned int);
 int close_cipher(cipher *);
 
 // Core operations ---------------------------------------------------------------------------------
 int run(cipher *, boolean);
 void rand_distributor(cipher *, int);
+void run_thread(cipher *, int, boolean);
 void fixed_distributor(cipher *, int, int);
 void permut_cipher(cipher *, int);
 
 // Matrix operations -------------------------------------------------------------------------------
 struct PMAT *init_permut_mat(int);
-struct PMAT *gen_permut_mat(cipher *, int, boolean);
+int pull_node(node **, int, thread_data *);
+struct PMAT *gen_permut_mat(cipher *, int, boolean, thread_data *);
 double *transform_vec(int, unsigned char bytes[], struct PMAT *, boolean);
 struct PMAT *orthogonal_transpose(struct PMAT *);
 int dot_product(double a[], double b[], int);

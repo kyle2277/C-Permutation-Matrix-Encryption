@@ -18,6 +18,7 @@
 
 #define INIT_OPTIONS "iedD:k:o:xmsh"
 #define COMMAND_OPTIONS ":k:D:shr"
+#define MAX_THREADS 4
 
 /*
  * Prints ASCII art splash.
@@ -258,7 +259,7 @@ int main(int argc, char **argv) {
   printf("Start time: %d\n\n", (int) (start *1000 / CLOCKS_PER_SEC));
   if(!argv[1]) {
     usage_help();
-    exit(1);
+    exit(EXIT_SUCCESS);
   }
   // Parse input file path
   char *absolute_path = argv[1];
@@ -285,13 +286,13 @@ int main(int argc, char **argv) {
   if(init->encrypt < 0) {
     free(init);
     usage_help();
-    exit(1);
+    exit(EXIT_SUCCESS);
     //fatal(LOG_OUTPUT, "Invalid usage - must specify encrypt (-e) or decrypt (-d) mode.");
   }
   printf("File name: %s\n", file_name);
   printf("File size: %ld bytes\n", file_len);
   printf("Mode: %s\n", init->encrypt ? "encrypt" : "decrypt");
-  cipher *ciph = create_cipher(file_name, just_path, file_len);
+  cipher *ciph = create_cipher(file_name, just_path, file_len, MAX_THREADS);
   //app welcome
   main_help();
   instruction **instructions = (instruction **)malloc(sizeof(instruction *) * MAX_INSTRUCTIONS);
@@ -336,8 +337,8 @@ int main(int argc, char **argv) {
   free(init);
   free_instructions(instructions, num_instructions);
   clock_t difference = clock() - start;
-  double sec = (double)difference / CLOCKS_PER_SEC;
-  printf("Elapsed time (s): %.2lf\n", sec);
+  double sec = (double)difference*1000 / CLOCKS_PER_SEC;
+  printf("Elapsed time (ms): %.2lf\n", sec);
   printf("Done.\n");
   return ciph_status;
 }
