@@ -10,7 +10,7 @@ DEPENDENCIES = Dependencies/csparse.c Dependencies/csparse.h Dependencies/st_to_
 
 all			:	fontblanc
 fontblanc		:	fontblanc_main.o fontblanc.o util.o csparse.o st_to_cc.o
-				$(CC) $(CFLAGS) -lm -o fontblanc fontblanc_main.c fontblanc.o util.o csparse.o st_to_cc.o
+				$(CC) $(CFLAGS) -lm -lpthread -o fontblanc fontblanc_main.c fontblanc.o util.o csparse.o st_to_cc.o
 fontblanc_main.o	:	fontblanc_main.c
 				$(CC) $(CFLAGS) -c fontblanc_main.c
 fontblanc.o		:	fontblanc.c fontblanc.h

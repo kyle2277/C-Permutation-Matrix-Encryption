@@ -73,19 +73,30 @@ typedef struct cipher{
     boolean integrity_check;
 } cipher;
 
+typedef struct permut_thread {
+  int index;
+  int dimension;
+  node **trash;
+  int trash_index;
+  cipher *c;
+  boolean inverse;
+} permut_thread;
+
 // Constructors and Destructors --------------------------------------------------------------------
-cipher *create_cipher(char *, char *, long);
+cipher *create_cipher(char *, char *, long, unsigned int);
 int close_cipher(cipher *);
 
 // Core operations ---------------------------------------------------------------------------------
 int run(cipher *, boolean);
 void rand_distributor(cipher *, int);
+void fixed_distributor2(cipher *, int, int);
 void fixed_distributor(cipher *, int, int);
 void permut_cipher(cipher *, int);
 
 // Matrix operations -------------------------------------------------------------------------------
 struct PMAT *init_permut_mat(int);
-struct PMAT *gen_permut_mat(cipher *, int, boolean);
+int pull_node(node **, int, permut_thread *);
+struct PMAT *gen_permut_mat(permut_thread *);
 double *transform_vec(int, unsigned char bytes[], struct PMAT *, boolean);
 struct PMAT *orthogonal_transpose(struct PMAT *);
 int dot_product(double a[], double b[], int);

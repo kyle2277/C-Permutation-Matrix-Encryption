@@ -18,6 +18,7 @@
 
 #define INIT_OPTIONS "iedD:k:o:xmsh"
 #define COMMAND_OPTIONS ":k:D:shr"
+#define MAX_THREADS 1
 
 /*
  * Prints ASCII art splash.
@@ -291,7 +292,7 @@ int main(int argc, char **argv) {
   printf("File name: %s\n", file_name);
   printf("File size: %ld bytes\n", file_len);
   printf("Mode: %s\n", init->encrypt ? "encrypt" : "decrypt");
-  cipher *ciph = create_cipher(file_name, just_path, file_len);
+  cipher *ciph = create_cipher(file_name, just_path, file_len, MAX_THREADS);
   //app welcome
   main_help();
   instruction **instructions = (instruction **)malloc(sizeof(instruction *) * MAX_INSTRUCTIONS);
