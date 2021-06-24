@@ -3,7 +3,8 @@
  * Copyrite (c) Kyle Won, 2021
  * Command line user interaction controls for FontBlanc_C. Contains main function.
  */
-
+// Include POSIX source for clock
+#define _XOPEN_SOURCE 700
 #include <stdio.h>
 #include <stdlib.h>
 #include "fontblanc.h"
@@ -12,13 +13,14 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
+#include <inttypes.h>
 #include "Dependencies/csparse.h"
 #include <getopt.h>
 #include <termios.h>
 
 #define INIT_OPTIONS "iedD:k:o:xmsh"
 #define COMMAND_OPTIONS ":k:D:shr"
-#define MAX_THREADS 1
+#define BILLION 1000000000L
 
 /*
  * Prints ASCII art splash.
@@ -255,8 +257,6 @@ int instruction_input_loop(instruction **instructions, int num_instructions) {
  * Facilitates generating instructions and running cipher.
  */
 int main(int argc, char **argv) {
-  clock_t start = clock();
-  printf("Start time: %d\n\n", (int) (start *1000 / CLOCKS_PER_SEC));
   if(!argv[1]) {
     usage_help();
     exit(1);
@@ -326,7 +326,13 @@ int main(int argc, char **argv) {
   } else {
     printf("\nDecrypting...\n");
   }
+  long double difference;
+  struct timespec start, end;
+  clock_gettime(CLOCK_MONOTONIC, &start);
   int ciph_status = run(ciph, init->encrypt);
+  clock_gettime(CLOCK_MONOTONIC, &end);
+  difference = (long double) (BILLION * (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec)) / (double) BILLION;
+  //double sec = (double)difference / CLOCKS_PER_SEC;
   clean_instructions(instructions, num_instructions);
   close_cipher(ciph);
   free(init->encrypt_key);
@@ -336,9 +342,7 @@ int main(int argc, char **argv) {
   free(processed);
   free(init);
   free_instructions(instructions, num_instructions);
-  clock_t difference = clock() - start;
-  double sec = (double)difference / CLOCKS_PER_SEC;
-  printf("Elapsed time (s): %.2lf\n", sec);
+  printf("Elapsed time (s): %Lf\n", difference);
   printf("Done.\n");
   return ciph_status;
 }

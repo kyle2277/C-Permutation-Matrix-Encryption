@@ -24,12 +24,8 @@ clock_t time_transformation;
 clock_t time_p_loop;
 
 // Synchronization variables
-// Lock enforces mutual exclusion for access to permutation matrix map
-pthread_mutex_t *data_lock;
 // Semaphore allows max number of threads running at once
 sem_t *thread_sema;
-// Condvar signals main thread when worker threads are finished generating matrices
-pthread_cond_t *condvar;
 
 // Globals for threads generating permutation matrices
 // For fixed dimension: contains dimensions of all permutation matrices to be created
@@ -37,12 +33,8 @@ pthread_cond_t *condvar;
 int *dim_array;
 // Size of array storing matrices to be generated
 int dim_array_size;
-// Number of matrices to be generated
-int num_array;
 // Index counter keeps track of which matrices have been assigned to threads
 int dim_index;
-// Counter keeps track of how many matrices are finished
-_Atomic int dim_finished;
 
 // Constructors and Destructors
 
@@ -70,12 +62,8 @@ cipher *create_cipher(char *file_name, char *file_path, long file_len, unsigned 
     fatal(LOG_OUTPUT, "Dynamic memory allocation error in create_cipher(), fontblanc.c"); exit(-1);
   }
   init_ll_trash(MAX_DIMENSION);
-  data_lock = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
-  pthread_mutex_init(data_lock, NULL);
   thread_sema = (sem_t *)malloc(sizeof(sem_t));
   sem_init(thread_sema, 0, num_threads);
-  condvar = (pthread_cond_t *)malloc(sizeof(pthread_cond_t));
-  pthread_cond_init(condvar, NULL);
   // DEBUG OUTPUT
   //debug = fopen("FB_WO_debug.txt", "a");
   return c;
@@ -90,12 +78,8 @@ int close_cipher(cipher *c) {
   //free(c->instructions);
   free(c->file_bytes);
   free(c->permut_map);
-  pthread_mutex_destroy(data_lock);
-  free(data_lock);
   sem_destroy(thread_sema);
   free(thread_sema);
-  pthread_cond_destroy(condvar);
-  free(condvar);
   free(c);
   return 1;
 }
@@ -156,12 +140,9 @@ void *thread_func(void *args) {
   gen_permut_mat(pt);
   empty_trash(pt->trash, pt->trash_index);
   free_ll_trash(pt->trash);
-  dim_finished ++;
-  pthread_cond_broadcast(condvar);
   // Make new thread available
   sem_post(thread_sema);
   printf("Finished mat: %d\n", pt->dimension);
-  pthread_detach(pthread_self());
   return NULL;
 }
 
@@ -171,14 +152,14 @@ void *thread_func(void *args) {
 void rand_distributor2(cipher *c, int coeff) {
   // 10 slots for perumation matrices, 9 mapped to base 10 digits 1-9 + one extra for last
   // matrix of arbitrary size
+  pthread_t **threads = (pthread_t **)calloc(MAX_THREADS, sizeof(pthread_t *));
   dim_array = (int *)calloc(11, sizeof(int));
-  if(!dim_array) {
+  if(!dim_array || !threads) {
     fatal(LOG_OUTPUT, "Dynamic memory allocation error in rand_distributor(), fontblanc.c.");
     exit(EXIT_FAILURE);
   }
   dim_array_size = 10;
   // 'finished' matrix in 0 index
-  dim_finished = 1;
   dim_index = 1;
   for(int i = 1; i < 10; i++) {
     dim_array[i] = i > 1 ? MAX_DIMENSION - (MAX_DIMENSION / i) : MAX_DIMENSION;
@@ -187,22 +168,33 @@ void rand_distributor2(cipher *c, int coeff) {
   printf("Generating matrices...\n");
   // Generate permutation matrices in parallel
   while(dim_index < dim_array_size) {
-    // Wait until a thread is available
-    sem_wait(thread_sema);
-    permut_thread *pt = (permut_thread *)malloc(sizeof(permut_thread));
-    pt->index = dim_index;
-    pt->dimension = dim_array[dim_index];
-    pt->c = c;
-    pt->inverse = coeff < 0;
-    pthread_t thread;
-    pthread_create(&thread, NULL, thread_func, (void *) pt);
-    dim_index += 1;
+    // Create threads
+    for(int i = 0; i < MAX_THREADS; i++) {
+      if (dim_index >= dim_array_size) {
+        break;
+      }
+      // Wait until a thread is available
+      sem_wait(thread_sema);
+      permut_thread *pt = (permut_thread *)malloc(sizeof(permut_thread));
+      pt->index = dim_index;
+      pt->dimension = dim_array[dim_index];
+      pt->c = c;
+      pt->inverse = coeff < 0;
+      pthread_t *thread = (pthread_t *)malloc(sizeof(pthread_t));
+      threads[i] = thread;
+      pthread_create(thread, NULL, thread_func, (void *) pt);
+      dim_index += 1;
+    }
+    // Join threads
+    for(int i = 0; i < MAX_THREADS; i++) {
+      if(threads[i]) {
+        pthread_join(*(threads[i]), NULL);
+        free(threads[i]);
+        threads[i] = NULL;
+      }
+    }
   }
-  pthread_mutex_lock(data_lock);
-  while(dim_finished < dim_array_size) {
-    pthread_cond_wait(condvar, data_lock);
-  }
-  pthread_mutex_unlock(data_lock);
+  free(threads);
   printf("Performing linear transformations...\n");
   //create encrypt map of length required for file instead of looping
   //todo limits file size to max size of unsigned int in bytes, ~4GB
@@ -249,26 +241,31 @@ void fixed_distributor2(cipher *c, int coeff, int dimension) {
   }
   dim_array[1] = dimension;
   dim_array[2] = last_dim;
-  dim_finished = 1;
-  dim_index = 1;
   printf("Generating matrices...\n");
-  // Generate permutation matrices in parallel
-  while(dim_index < dim_array_size) {
-    // Wait until a thread is available
+  // Generate 2 permutation matrices in parallel
+  sem_wait(thread_sema);
+  permut_thread *pt_1 = (permut_thread *)malloc(sizeof(permut_thread));
+  pt_1->index = 1;
+  pt_1->dimension = dim_array[pt_1->index];
+  pt_1->c = c;
+  pt_1->inverse = coeff < 0;
+  pthread_t thread_1;
+  pthread_create(&thread_1, NULL, thread_func, (void *) pt_1);
+  dim_index += 1;
+
+  // Generate last arbitrary size matrix if necessary
+  if(dim_array_size > 2) {
     sem_wait(thread_sema);
-    permut_thread *pt = (permut_thread *)malloc(sizeof(permut_thread));
-    pt->index = dim_index;
-    pt->dimension = dim_array[dim_index];
-    pt->c = c;
-    pt->inverse = coeff < 0;
-    pthread_t thread;
-    pthread_create(&thread, NULL, thread_func, (void *) pt);
-    dim_index += 1;
+    permut_thread *pt_2 = (permut_thread *)malloc(sizeof(permut_thread));
+    pt_2->index = 2;
+    pt_2->dimension = dim_array[pt_2->index];
+    pt_2->c = c;
+    pt_2->inverse = coeff < 0;
+    pthread_t thread_2;
+    pthread_create(&thread_2, NULL, thread_func, (void *) pt_2);
+    pthread_join(thread_2, NULL);
   }
-  pthread_mutex_lock(data_lock);
-  while(dim_finished < dim_array_size) {
-    pthread_cond_wait(condvar, data_lock);
-  }
+  pthread_join(thread_1, NULL);
   printf("Performing linear transformations...\n");
   while(c->bytes_remaining >= dimension) {
     // Use fixed array stored in index 1
