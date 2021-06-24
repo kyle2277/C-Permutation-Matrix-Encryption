@@ -56,12 +56,11 @@ cipher *create_cipher(char *file_name, char *file_path, long file_len, unsigned 
   c->instructions = NULL;
   c->num_instructions = 0;
   c->integrity_check = true;
-  // 9 variations of perumation matrices, mapped to base 10 digits 1-9
-  c->permut_map = (struct PMAT **)calloc(10, sizeof(struct PMAT *));
+  // 9 variations of perumation matrices, mapped to base 10 digits 1-9 + 1 for last variable matrix
+  c->permut_map = (struct PMAT **)calloc(11, sizeof(struct PMAT *));
   if(!c->permut_map) {
     fatal(LOG_OUTPUT, "Dynamic memory allocation error in create_cipher(), fontblanc.c"); exit(-1);
   }
-  init_ll_trash(MAX_DIMENSION);
   thread_sema = (sem_t *)malloc(sizeof(sem_t));
   sem_init(thread_sema, 0, num_threads);
   // DEBUG OUTPUT
@@ -143,6 +142,7 @@ void *thread_func(void *args) {
   // Make new thread available
   sem_post(thread_sema);
   printf("Finished mat: %d\n", pt->dimension);
+  free(pt);
   return NULL;
 }
 
@@ -225,6 +225,7 @@ void rand_distributor2(cipher *c, int coeff) {
     // Last matrix stored 11th array slot, index 10
     permut_cipher(c, coeff * 10);
   }
+  free(dim_array);
 }
 
 /*
@@ -276,6 +277,7 @@ void fixed_distributor2(cipher *c, int coeff, int dimension) {
     // Use variable array stored in index 2
     permut_cipher(c, coeff * 2);
   }
+  free(dim_array);
 }
 
 /*
