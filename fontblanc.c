@@ -342,6 +342,8 @@ struct PMAT *init_permut_mat(int dimension) {
   m->i = mi;
   m->j = mj;
   m->v = mv;
+  m->check_vec_bef = (double *)calloc((size_t)dimension, sizeof(double));
+  m->check_vec_aft = (double *)calloc((size_t)dimension, sizeof(double));
   return m;
 }
 
@@ -531,12 +533,14 @@ void purge_mat(struct PMAT *pm) {
   memset(pm->i->icc, '\0', pm->dimension * sizeof(int));
   memset(pm->j->icc, '\0', (pm->dimension + 1) * sizeof(int));
   memset(pm->v->acc, '\0', pm->dimension * sizeof(double));
-  memset(pm->check_vec_bef, '\0', MAX_DIMENSION * sizeof(double));
-  memset(pm->check_vec_aft, '\0', MAX_DIMENSION * sizeof(double));
+  memset(pm->check_vec_bef, '\0', pm->dimension * sizeof(double));
+  memset(pm->check_vec_aft, '\0', pm->dimension * sizeof(double));
   pm->dimension = 0;
   free(pm->i);
   free(pm->j);
   free(pm->v);
+  free(pm->check_vec_bef);
+  free(pm->check_vec_aft);
   free(pm);
 }
 
