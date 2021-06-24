@@ -19,7 +19,7 @@
 #define BILLION 1000000000L
 #define INIT_OPTIONS "iedD:k:o:xmsh"
 #define COMMAND_OPTIONS ":k:D:shr"
-#define MAX_THREADS 1
+#define MAX_THREADS 8
 
 /*
  * Prints ASCII art splash.
