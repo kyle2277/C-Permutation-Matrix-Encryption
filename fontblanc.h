@@ -10,7 +10,7 @@
 #include "util.h"
 
 // Changes size of largest possible matrix
-#define MAX_DIMENSION 4096
+#define MAX_DIMENSION 8192
 // Increase if crashing ***MUST BE HIGHER THAN MAX DIMENSION***
 #define MAPSIZE MAX_DIMENSION + 1
 #define ENCRYPT_EXT ".fbz"
@@ -25,8 +25,8 @@ struct PMAT {
     struct PMAT_I *i;
     struct PMAT_I *j;
     struct PMAT_V *v;
-    double check_vec_bef[MAX_DIMENSION];
-    double check_vec_aft[MAX_DIMENSION];
+    double *check_vec_bef;
+    double *check_vec_aft;
 };
 
 /*
