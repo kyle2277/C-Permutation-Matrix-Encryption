@@ -65,7 +65,7 @@ cipher *create_cipher(char *file_name, char *file_path, long file_len, unsigned 
   c->num_instructions = 0;
   c->integrity_check = true;
   // 9 variations of perumation matrices, mapped to base 10 digits 1-9
-  c->permut_map = (struct PMAT **)calloc(10, sizeof(struct PMAT *));
+  c->permut_map = (struct PMAT **)calloc(11, sizeof(struct PMAT *));
   if(!c->permut_map) {
     fatal(LOG_OUTPUT, "Dynamic memory allocation error in create_cipher(), fontblanc.c"); exit(-1);
   }
@@ -522,7 +522,7 @@ int dot_product(double a[], double b[], int dimension) {
  * zeroes out permutation matrix maps.
  */
 void purge_maps(cipher *c) {
-  for(int i = 0; i < dim_array_size; i++) {
+  for(int i = 1; i < dim_array_size; i++) {
     struct PMAT *pm = c->permut_map[i];
     if(pm) {
       purge_mat(pm);
