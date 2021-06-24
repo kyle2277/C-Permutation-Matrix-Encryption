@@ -54,7 +54,6 @@ cipher *create_cipher(char *file_name, char *file_path, long file_len, unsigned 
   c->working_offset = 0;
   c->instructions = NULL;
   c->num_instructions = 0;
-  c->thread_counter = 1;
   c->integrity_check = true;
   c->permut_map = (struct PMAT **)calloc(MAPSIZE, sizeof(struct PMAT *));
   if(!c->permut_map) {
@@ -127,25 +126,26 @@ void rand_distributor(cipher *c, int coeff) {
   clock_t start = clock();
   //create encrypt map of length required for file instead of looping
   //todo limits file size to max size of unsigned int in bytes, ~4GB
-  if(c->bytes_remaining > MAX_DIMENSION) {
+  while(c->bytes_remaining > MAX_DIMENSION) {
     int approx = (unsigned int)c->bytes_remaining/MAX_DIMENSION;
     char *linked = gen_linked_vals(c, approx);
     int map_len = (int)strlen(linked);
     for(int map_itr = 0; c->bytes_remaining >= MAX_DIMENSION; map_itr++) {
       int tmp = (charAt(linked, map_itr % map_len) - '0');
       int dimension = tmp > 1 ? MAX_DIMENSION - (MAX_DIMENSION / tmp) : MAX_DIMENSION;
-      run_thread(c, coeff * dimension, false);
+      run_thread(c, coeff * dimension);
     }
     free(linked);
-  } else {
-    int b = (int) c->bytes_remaining;
-    if(b > 0) {
-      pthread_mutex_lock(cipher_lock);
-      while (c->bytes_processed < c->file_len) {
-        pthread_cond_wait(condvar, cipher_lock);
-      }
-    }
   }
+  int b = (int) c->bytes_remaining;
+  if(b > 0) {
+    run_thread(c, coeff * b);
+  }
+  pthread_mutex_lock(cipher_lock);
+  while (c->bytes_processed < c->file_len) {
+    pthread_cond_wait(condvar, cipher_lock);
+  }
+  pthread_mutex_unlock(cipher_lock);
   time_parallel_computation = clock() - start;
 }
 
@@ -199,7 +199,7 @@ void *thread_func(void *args) {
 /*
  * Creates a thread of the given dimension and runs the matrix transformation.
  */
-void run_thread(cipher *c, int dimension, boolean last) {
+void run_thread(cipher *c, int dimension) {
   // Wait until a thread is available
   sem_wait(thread_sema);
   // Create thread info struct
@@ -217,11 +217,9 @@ void run_thread(cipher *c, int dimension, boolean last) {
   struct PMAT *pm = c->permut_map[abs(dimension)];
   td->trash = init_ll_trash(dimension);
   td->trash_index = 0;
-  td->id = c->thread_counter;
   td->ciph = c;
   td->offset = c->working_offset;
   td->dimension = dimension;
-  td->last = last;
   td->permutation_mat = pm ? pm : gen_permut_mat(c, dimension, inverse, td);
   c->working_offset += dimension;
   c->bytes_remaining -= dimension;
@@ -237,16 +235,17 @@ void run_thread(cipher *c, int dimension, boolean last) {
 void fixed_distributor(cipher *c, int coeff, int dimension) {
   clock_t start = clock();
   while(c->bytes_remaining > dimension) {
-    run_thread(c, coeff * dimension, false);
+    run_thread(c, coeff * dimension);
   }
   int b = (int)c->bytes_remaining;
   if(b > 0) {
-    run_thread(c, coeff * b, true);
-    pthread_mutex_lock(cipher_lock);
-    while(c->bytes_processed < c->file_len) {
-      pthread_cond_wait(condvar, cipher_lock);
-    }
+    run_thread(c, coeff * b);
   }
+  pthread_mutex_lock(cipher_lock);
+  while(c->bytes_processed < c->file_len) {
+    pthread_cond_wait(condvar, cipher_lock);
+  }
+  pthread_mutex_unlock(cipher_lock);
   time_parallel_computation = clock() - start;
 }
 
@@ -299,6 +298,8 @@ struct PMAT *init_permut_mat(int dimension) {
   m->i = mi;
   m->j = mj;
   m->v = mv;
+  m->check_vec_bef = (double *)calloc((size_t) dimension, sizeof(double));
+  m->check_vec_aft = (double *)calloc((size_t) dimension, sizeof(double));
   return m;
 }
 
@@ -488,12 +489,14 @@ void purge_mat(struct PMAT *pm) {
   memset(pm->i->icc, '\0', pm->dimension * sizeof(int));
   memset(pm->j->icc, '\0', (pm->dimension + 1) * sizeof(int));
   memset(pm->v->acc, '\0', pm->dimension * sizeof(double));
-  memset(pm->check_vec_bef, '\0', MAX_DIMENSION * sizeof(double));
-  memset(pm->check_vec_aft, '\0', MAX_DIMENSION * sizeof(double));
+  memset(pm->check_vec_bef, '\0', pm->dimension * sizeof(double));
+  memset(pm->check_vec_aft, '\0', pm->dimension * sizeof(double));
   pm->dimension = 0;
   free(pm->i);
   free(pm->j);
   free(pm->v);
+  free(pm->check_vec_bef);
+  free(pm->check_vec_aft);
   free(pm);
 }
 
@@ -654,6 +657,7 @@ void read_instructions(cipher *c, int coeff) {
     instruction *cur = c->instructions[abs(i)];
     c->bytes_remaining = c->file_len;
     c->bytes_processed = 0;
+    c->working_offset = 0;
     c->integrity_check = cur->integrity_check;
     //FIXED: dimension cannot be larger than max dimension
     int dimension = cur->dimension > MAX_DIMENSION ? MAX_DIMENSION : cur->dimension;

@@ -11,7 +11,7 @@
 #include <pthread.h>
 
 // Changes size of largest possible matrix
-#define MAX_DIMENSION 4096
+#define MAX_DIMENSION 8192
 // Increase if crashing ***MUST BE HIGHER THAN MAX DIMENSION***
 #define MAPSIZE MAX_DIMENSION + 1
 #define ENCRYPT_EXT ".fbz"
@@ -26,8 +26,8 @@ struct PMAT {
   struct PMAT_I *i;
   struct PMAT_I *j;
   struct PMAT_V *v;
-  double check_vec_bef[MAX_DIMENSION];
-  double check_vec_aft[MAX_DIMENSION];
+  double *check_vec_bef;
+  double *check_vec_aft;
 };
 
 /*
@@ -72,8 +72,6 @@ typedef struct cipher{
   unsigned char *file_bytes;
   instruction **instructions;
   int num_instructions;
-  // Counter keeps track of order to write data
-  int thread_counter;
   boolean integrity_check;
 } cipher;
 
@@ -85,7 +83,6 @@ typedef struct thread_data {
   node **trash;
   int trash_index;
   struct PMAT *permutation_mat;
-  boolean last;
 } thread_data;
 
 // Constructors and Destructors --------------------------------------------------------------------
@@ -95,7 +92,7 @@ int close_cipher(cipher *);
 // Core operations ---------------------------------------------------------------------------------
 int run(cipher *, boolean);
 void rand_distributor(cipher *, int);
-void run_thread(cipher *, int, boolean);
+void run_thread(cipher *, int);
 void fixed_distributor(cipher *, int, int);
 void permut_cipher(cipher *, int);
 
