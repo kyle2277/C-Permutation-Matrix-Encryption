@@ -69,7 +69,6 @@ cipher *create_cipher(char *file_name, char *file_path, long file_len, unsigned 
   if(!c->permut_map) {
     fatal(LOG_OUTPUT, "Dynamic memory allocation error in create_cipher(), fontblanc.c"); exit(-1);
   }
-  init_ll_trash(MAX_DIMENSION);
   data_lock = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
   pthread_mutex_init(data_lock, NULL);
   thread_sema = (sem_t *)malloc(sizeof(sem_t));
@@ -161,6 +160,7 @@ void *thread_func(void *args) {
   // Make new thread available
   sem_post(thread_sema);
   printf("Finished mat: %d\n", pt->dimension);
+  free(pt);
   pthread_detach(pthread_self());
   return NULL;
 }
@@ -233,6 +233,7 @@ void rand_distributor2(cipher *c, int coeff) {
     // Last matrix stored 11th array slot, index 10
     permut_cipher(c, coeff * 10);
   }
+  free(dim_array);
 }
 
 /*
@@ -279,6 +280,7 @@ void fixed_distributor2(cipher *c, int coeff, int dimension) {
     // Use variable array stored in index 2
     permut_cipher(c, coeff * 2);
   }
+  free(dim_array);
 }
 
 /*
@@ -345,6 +347,8 @@ struct PMAT *init_permut_mat(int dimension) {
   m->i = mi;
   m->j = mj;
   m->v = mv;
+  m->check_vec_bef = (double *)calloc((size_t) dimension, sizeof(double));
+  m->check_vec_aft = (double *)calloc((size_t) dimension, sizeof(double));
   return m;
 }
 
@@ -534,12 +538,14 @@ void purge_mat(struct PMAT *pm) {
   memset(pm->i->icc, '\0', pm->dimension * sizeof(int));
   memset(pm->j->icc, '\0', (pm->dimension + 1) * sizeof(int));
   memset(pm->v->acc, '\0', pm->dimension * sizeof(double));
-  memset(pm->check_vec_bef, '\0', MAX_DIMENSION * sizeof(double));
-  memset(pm->check_vec_aft, '\0', MAX_DIMENSION * sizeof(double));
+  memset(pm->check_vec_bef, '\0', pm->dimension * sizeof(double));
+  memset(pm->check_vec_aft, '\0', pm->dimension * sizeof(double));
   pm->dimension = 0;
   free(pm->i);
   free(pm->j);
   free(pm->v);
+  free(pm->check_vec_bef);
+  free(pm->check_vec_aft);
   free(pm);
 }
 

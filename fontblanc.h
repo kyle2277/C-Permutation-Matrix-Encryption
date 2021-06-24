@@ -25,8 +25,8 @@ struct PMAT {
     struct PMAT_I *i;
     struct PMAT_I *j;
     struct PMAT_V *v;
-    double check_vec_bef[MAX_DIMENSION];
-    double check_vec_aft[MAX_DIMENSION];
+    double *check_vec_bef;
+    double *check_vec_aft;
 };
 
 /*
