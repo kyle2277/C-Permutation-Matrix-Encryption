@@ -65,8 +65,8 @@ typedef struct cipher{
     char encrypt_key[1000];
     int encrypt_key_val;
     long file_len;
-    long bytes_remaining;
-    long bytes_processed;
+    _Atomic long bytes_remaining;
+    _Atomic long bytes_processed;
     unsigned char *file_bytes;
     instruction **instructions;
     int num_instructions;
@@ -80,8 +80,10 @@ int close_cipher(cipher *);
 // Core operations ---------------------------------------------------------------------------------
 int run(cipher *, boolean);
 void rand_distributor(cipher *, int);
+void *fixed_thread_func(void *);
+void fixed_thread_scheduler(cipher *, int, int);
 void fixed_distributor(cipher *, int, int);
-void permut_cipher(cipher *, int);
+void permut_cipher(cipher *, int, long);
 
 // Matrix operations -------------------------------------------------------------------------------
 struct PMAT *init_permut_mat(int);

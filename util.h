@@ -9,6 +9,7 @@
 
 #define LOG_OUTPUT "fontblanc_log.txt"
 #define BUFFER 256
+#define MAX_THREADS 8
 typedef enum { false, true } boolean;
 
 /*

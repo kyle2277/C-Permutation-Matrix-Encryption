@@ -11,6 +11,8 @@
 #include <unistd.h>
 #include <math.h>
 #include <time.h>
+#include <semaphore.h>
+#include <pthread.h>
 #include "fontblanc.h"
 #include "Dependencies/st_to_cc.h"
 #include "Dependencies/csparse.h"
@@ -19,6 +21,46 @@ clock_t time_total_gen;
 clock_t time_total_write;
 clock_t time_transformation;
 clock_t time_p_loop;
+
+// Synchonization variables
+// Controls max number of threads creatable at once
+sem_t *thread_sema;
+// Lock for condition variable
+pthread_mutex_t *cipher_lock;
+// Condition variable which signals when main thread can terminate
+pthread_cond_t *condvar;
+// Lock for generating permutation matrices
+pthread_mutex_t *permut_lock;
+
+// Number of threads created
+int scheduled_chunks;
+// Number of threads finished
+_Atomic int finished_chunks;
+
+// Information for encrypting/decrypting a given chunk of the file
+typedef struct fixed_transform_thread {
+  cipher *ciph;
+  // Starting point in file
+  long offset;
+  // Number of bytes to process
+  long length;
+  // Permutation matrix dimension (used for fixed dimension)
+  int dimension;
+  // Indicates matrix inverse
+  int coeff;
+} fixed_transform_thread;
+
+typedef struct variable_transform_thread {
+  cipher *ciph;
+  // Starting point in file
+  long offset;
+  // Number of bytes to process
+  long length;
+  // Map iter values for generating linked vals
+  int iter_start;
+  // Indicates matrix inverse
+  int coeff;
+} variable_transform_thread;
 
 // Constructors and Destructors
 
@@ -45,6 +87,14 @@ cipher *create_cipher(char *file_name, char *file_path, long file_len) {
     fatal(LOG_OUTPUT, "Dynamic memory allocation error in create_cipher(), fontblanc.c"); exit(-1);
   }
   init_ll_trash(MAX_DIMENSION);
+  thread_sema = (sem_t *)malloc(sizeof(sem_t));
+  sem_init(thread_sema, 0, MAX_THREADS);
+  cipher_lock = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
+  pthread_mutex_init(cipher_lock, NULL);
+  condvar = (pthread_cond_t *)malloc(sizeof(pthread_cond_t));
+  pthread_cond_init(condvar, NULL);
+  permut_lock = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
+  pthread_mutex_init(permut_lock, NULL);
   // DEBUG OUTPUT
   //debug = fopen("FB_WO_debug.txt", "a");
   return c;
@@ -60,6 +110,14 @@ int close_cipher(cipher *c) {
   free(c->file_bytes);
   free(c->permut_map);
   free(c);
+  sem_destroy(thread_sema);
+  free(thread_sema);
+  pthread_mutex_destroy(cipher_lock);
+  free(cipher_lock);
+  pthread_cond_destroy(condvar);
+  free(condvar);
+  pthread_mutex_destroy(permut_lock);
+  free(permut_lock);
   free_ll_trash();
   return 1;
 }
@@ -92,47 +150,140 @@ int run(cipher *c, boolean encrypt) {
 void rand_distributor(cipher *c, int coeff) {
   //create encrypt map of length required for file instead of looping
   //todo limits file size to max size of unsigned int in bytes, ~4GB
-  if(c->bytes_remaining > MAX_DIMENSION) {
+  while(c->bytes_remaining > MAX_DIMENSION) {
     int approx = (unsigned int)c->bytes_remaining/MAX_DIMENSION;
     char *linked = gen_linked_vals(c, approx);
     int map_len = (int)strlen(linked);
     for(int map_itr = 0; c->bytes_remaining >= MAX_DIMENSION; map_itr++) {
       int tmp = (charAt(linked, map_itr % map_len) - '0');
       int dimension = tmp > 1 ? MAX_DIMENSION - (MAX_DIMENSION / tmp) : MAX_DIMENSION;
-      permut_cipher(c, coeff * dimension);
+      permut_cipher(c, coeff * dimension, 0);
     }
     free(linked);
-  } else {
-    int b = (int) c->bytes_remaining;
-    if(b > 0) {
-      permut_cipher(c, coeff*b);
-    }
+  }
+  int b = (int) c->bytes_remaining;
+  if(b > 0) {
+    permut_cipher(c, coeff*b, 0);
   }
 }
 
 /*
- * Process file using a fixed matrix dimension.
+ * Processes a section of file using fixed dimension permutation matrix.
+ */
+void *fixed_thread_func(void *args) {
+  if(!args) {
+    fatal(LOG_OUTPUT, "Null args reference in fixed_thread_func(), fontblanc.c."); exit(EXIT_FAILURE);
+  }
+  fixed_transform_thread *ftt = (fixed_transform_thread *)args;
+  long bytes_remaining = ftt->length;
+  long working_offset = ftt->offset;
+  while(bytes_remaining >= ftt->dimension) {
+    permut_cipher(ftt->ciph, ftt->coeff * ftt->dimension, working_offset);
+    bytes_remaining -= ftt->dimension;
+    working_offset += ftt->dimension;
+  }
+  if(bytes_remaining > 0) {
+    permut_cipher(ftt->ciph, ftt->coeff * (int)bytes_remaining, working_offset);
+  }
+  free(ftt);
+  finished_chunks += 1;
+  sem_post(thread_sema);
+  pthread_cond_broadcast(condvar);
+  pthread_detach(pthread_self());
+  return NULL;
+}
+
+/*
+ * Splits file into MAX_THREADS chunks each of which to be processed by a thread.
+ */
+void fixed_thread_scheduler(cipher *c, int coeff, int dimension) {
+  long chunk_size;
+  int chunk_index;
+  long working_offset = 0;
+  finished_chunks = 0;
+  scheduled_chunks = 0;
+  if(c->file_len > dimension) {
+    long calculations_per_chunk = c->file_len / dimension / MAX_THREADS;
+    chunk_size = calculations_per_chunk * dimension;
+    for(chunk_index = 0; chunk_index < (MAX_THREADS - 1); chunk_index++) {
+      if(working_offset + chunk_size > c->file_len) {
+        break;
+      }
+      // Acquire available thread
+      sem_wait(thread_sema);
+      pthread_t thread;
+      fixed_transform_thread *ftt = (fixed_transform_thread *)malloc(sizeof(fixed_transform_thread));
+      if(!ftt) {
+        fatal(LOG_OUTPUT, "Dynamic memory allocation error in fixed_thread_scheduler(), fontblanc.c.");
+        exit(EXIT_FAILURE);
+      }
+      ftt->dimension = dimension;
+      ftt->offset = chunk_size * chunk_index;
+      ftt->length = chunk_size;
+      ftt->coeff = coeff;
+      ftt->ciph = c;
+      working_offset += chunk_size;
+      scheduled_chunks += 1;
+      pthread_create(&thread, NULL, fixed_thread_func, (void *)ftt);
+    }
+  } else {
+    chunk_size = c->file_len;
+    chunk_index = 0;
+  }
+  // Schedule last thread
+  sem_wait(thread_sema);
+  pthread_t thread;
+  fixed_transform_thread *ftt = (fixed_transform_thread *)malloc(sizeof(fixed_transform_thread));
+  if(!ftt) {
+    fatal(LOG_OUTPUT, "Dynamic memory allocation error in fixed_thread_scheduler(), fontblanc.c.");
+    exit(EXIT_FAILURE);
+  }
+  ftt->dimension = dimension;
+  ftt->offset = chunk_size * chunk_index;
+  // Last thread takes arbitrary chunk size to eof
+  ftt->length = c->file_len - ftt->offset;
+  ftt->coeff = coeff;
+  ftt->ciph = c;
+  scheduled_chunks += 1;
+  pthread_create(&thread, NULL, fixed_thread_func, (void *)ftt);
+  // Wait for all threads to finish
+  pthread_mutex_lock(cipher_lock);
+  while(finished_chunks < scheduled_chunks) {
+    pthread_cond_wait(condvar, cipher_lock);
+  }
+  pthread_mutex_unlock(cipher_lock);
+}
+
+/*
+ * DEPRECATED. Process file using a fixed matrix dimension.
  */
 void fixed_distributor(cipher *c, int coeff, int dimension) {
   while(c->bytes_remaining >= dimension) {
-    permut_cipher(c, coeff*dimension);
+    permut_cipher(c, coeff*dimension, 0);
   }
   int b = (int)c->bytes_remaining;
   if(b > 0) {
-    permut_cipher(c, coeff*b);
+    permut_cipher(c, coeff*b, 0);
   }
 }
 
 /*
  * Facilitates matrix transformations.
  */
-void permut_cipher(cipher *c, int dimension) {
-  long ref = c->bytes_processed;
+void permut_cipher(cipher *c, int dimension, long ref) {
   unsigned char *data = c->file_bytes;
-  struct PMAT *pm = c->permut_map[abs(dimension)];
+  struct PMAT *permutation_mat = c->permut_map[abs(dimension)];
   boolean inverse = dimension < 0;
   dimension = abs(dimension);
-  struct PMAT *permutation_mat = pm ? pm : gen_permut_mat(c, dimension, inverse);
+  if(!permutation_mat) {
+    pthread_mutex_lock(permut_lock);
+    if(c->permut_map[abs(dimension)]) {
+      permutation_mat = c->permut_map[abs(dimension)];
+    } else {
+      permutation_mat = gen_permut_mat(c, dimension, inverse);
+    }
+    pthread_mutex_unlock(permut_lock);
+  }
   unsigned char *data_in = (unsigned char *)calloc((size_t)dimension + 1, sizeof(unsigned char));
   memcpy(data_in, data+ref, (size_t)sizeof(unsigned char)*dimension);
   double *result = transform_vec(dimension, data_in, permutation_mat, c->integrity_check);
@@ -517,7 +668,7 @@ void read_instructions(cipher *c, int coeff) {
     //memset(cur->encrypt_key, '\0', sizeof(char)*key_len);
     c->encrypt_key_val = key_sum(c->encrypt_key);
     if(dimension > 0) { //fixed dimension
-      fixed_distributor(c, coeff, dimension);
+      fixed_thread_scheduler(c, coeff, dimension);
     } else { //flexible dimension
       rand_distributor(c, coeff);
     }
