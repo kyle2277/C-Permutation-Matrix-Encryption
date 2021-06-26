@@ -102,11 +102,10 @@ void rand_distributor(cipher *c, int coeff) {
       permut_cipher(c, coeff * dimension);
     }
     free(linked);
-  } else {
-    int b = (int) c->bytes_remaining;
-    if(b > 0) {
-      permut_cipher(c, coeff*b);
-    }
+  }
+  int b = (int) c->bytes_remaining;
+  if(b > 0) {
+    permut_cipher(c, coeff*b);
   }
 }
 
