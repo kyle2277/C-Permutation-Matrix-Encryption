@@ -188,8 +188,8 @@ void *variable_thread_func(void *args) {
       int dimension = tmp > 1 ? MAX_DIMENSION - (MAX_DIMENSION / tmp) : MAX_DIMENSION;
       permut_cipher(vtt->ciph, vtt->coeff * dimension, working_offset);
       bytes_remaining -= dimension;
+      working_offset += dimension;
     }
-    free(vtt->dimension_vals);
   }
   int b = (int) bytes_remaining;
   if(b > 0) {
@@ -213,11 +213,11 @@ void variable_thread_scheduler(cipher *c, int coeff) {
   int map_index = 0;
   long working_offset = 0;
   long bytes_remaining = c->file_len;
-  long calculations_per_chunk = c->file_len / (MAX_DIMENSION / 2) / MAX_THREADS;
+  long calculations_per_chunk = c->file_len / (MAX_DIMENSION) / MAX_THREADS;
   long approx = c->file_len / MAX_DIMENSION;
   char *linked = gen_linked_vals(c, (unsigned int)approx);
   int map_len = (int)strlen(linked);
-  if(c->file_len > MAX_DIMENSION) {
+  if(calculations_per_chunk > 0) {
     for(int i = 0; i < (MAX_THREADS - 1); i++) {
       if(bytes_remaining < MAX_DIMENSION) {
         break;
@@ -277,6 +277,7 @@ void variable_thread_scheduler(cipher *c, int coeff) {
   while(finished_chunks < scheduled_chunks) {
     pthread_cond_wait(condvar, cipher_lock);
   }
+  free(linked);
   pthread_mutex_unlock(cipher_lock);
 }
 
