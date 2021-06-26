@@ -10,7 +10,7 @@
 #include "util.h"
 
 // Changes size of largest possible matrix
-#define MAX_DIMENSION 8192
+#define MAX_DIMENSION 50
 // Increase if crashing ***MUST BE HIGHER THAN MAX DIMENSION***
 #define MAPSIZE MAX_DIMENSION + 1
 #define ENCRYPT_EXT ".fbz"
@@ -80,6 +80,8 @@ int close_cipher(cipher *);
 // Core operations ---------------------------------------------------------------------------------
 int run(cipher *, boolean);
 void rand_distributor(cipher *, int);
+void *variable_thread_func(void *);
+void variable_thread_scheduler(cipher *, int);
 void *fixed_thread_func(void *);
 void fixed_thread_scheduler(cipher *, int, int);
 void fixed_distributor(cipher *, int, int);

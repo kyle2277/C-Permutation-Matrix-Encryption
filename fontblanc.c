@@ -56,10 +56,14 @@ typedef struct variable_transform_thread {
   long offset;
   // Number of bytes to process
   long length;
-  // Map iter values for generating linked vals
-  int iter_start;
+  // String of values for generating dimensions
+  char *dimension_vals;
+  // Index of first dimension value in dimension_vals
+  int map_itr_start;
   // Indicates matrix inverse
   int coeff;
+  // Indicates if last thread should run to eof
+  boolean last;
 } variable_transform_thread;
 
 // Constructors and Destructors
@@ -145,7 +149,7 @@ int run(cipher *c, boolean encrypt) {
 }
 
 /*
- * Process file using pseudo-random matrix dimensions.
+ * DEPRECATED. Process file using pseudo-random matrix dimensions.
  */
 void rand_distributor(cipher *c, int coeff) {
   //create encrypt map of length required for file instead of looping
@@ -165,6 +169,115 @@ void rand_distributor(cipher *c, int coeff) {
   if(b > 0) {
     permut_cipher(c, coeff*b, 0);
   }
+}
+
+void *variable_thread_func(void *args) {
+  //create encrypt map of length required for file instead of looping
+  //todo limits file size to max size of unsigned int in bytes, ~4GB
+  if(!args) {
+    fatal(LOG_OUTPUT, "Null args reference in fixed_thread_func(), fontblanc.c."); exit(EXIT_FAILURE);
+  }
+  variable_transform_thread *vtt = (variable_transform_thread *)args;
+  long bytes_remaining = vtt->length;
+  long working_offset = vtt->offset;
+  int limit = vtt->last ? MAX_DIMENSION : 0;
+  if(bytes_remaining > limit) {
+    int map_len = (int)strlen(vtt->dimension_vals);
+    for(int map_itr = vtt->map_itr_start; bytes_remaining >= MAX_DIMENSION; map_itr++) {
+      int tmp = (charAt(vtt->dimension_vals, map_itr % map_len) - '0');
+      int dimension = tmp > 1 ? MAX_DIMENSION - (MAX_DIMENSION / tmp) : MAX_DIMENSION;
+      permut_cipher(vtt->ciph, vtt->coeff * dimension, working_offset);
+      bytes_remaining -= dimension;
+    }
+    free(vtt->dimension_vals);
+  }
+  int b = (int) bytes_remaining;
+  if(b > 0) {
+    permut_cipher(vtt->ciph, vtt->coeff * b, working_offset);
+  }
+  free(vtt);
+  finished_chunks += 1;
+  sem_post(thread_sema);
+  pthread_cond_broadcast(condvar);
+  pthread_detach(pthread_self());
+  return NULL;
+}
+
+/*
+ * Splits file into MAX_THREADS chunks each of which to be processed by a thread using variable
+ * dimension transformations.
+ */
+void variable_thread_scheduler(cipher *c, int coeff) {
+  finished_chunks = 0;
+  scheduled_chunks = 0;
+  int map_index = 0;
+  long working_offset = 0;
+  long bytes_remaining = c->file_len;
+  long calculations_per_chunk = c->file_len / (MAX_DIMENSION / 2) / MAX_THREADS;
+  long approx = c->file_len / MAX_DIMENSION;
+  char *linked = gen_linked_vals(c, (unsigned int)approx);
+  int map_len = (int)strlen(linked);
+  if(c->file_len > MAX_DIMENSION) {
+    for(int i = 0; i < (MAX_THREADS - 1); i++) {
+      if(bytes_remaining < MAX_DIMENSION) {
+        break;
+      }
+      int length = 0;
+      int map_itr_start = map_index % map_len;
+      for(int j = 0; j < calculations_per_chunk; j++, map_index++) {
+        int tmp = (charAt(linked, map_index % map_len) - '0');
+        int dimension = tmp > 1 ? MAX_DIMENSION - (MAX_DIMENSION / tmp) : MAX_DIMENSION;
+        if((bytes_remaining - dimension) < 0) {
+          break;
+        }
+        length += dimension;
+        bytes_remaining -= dimension;
+      }
+
+      // Acquire available thread
+      sem_wait(thread_sema);
+      pthread_t thread;
+      variable_transform_thread *vtt = (variable_transform_thread *)malloc(sizeof(variable_transform_thread));
+      if(!vtt) {
+        fatal(LOG_OUTPUT, "Dynamic memory allocation error in fixed_thread_scheduler(), fontblanc.c.");
+        exit(EXIT_FAILURE);
+      }
+      vtt->map_itr_start = map_itr_start;
+      vtt->length = length;
+      vtt->offset = working_offset;
+      vtt->dimension_vals = linked;
+      vtt->coeff = coeff;
+      vtt->ciph = c;
+      vtt->last = false;
+      working_offset += length;
+      scheduled_chunks += 1;
+      pthread_create(&thread, NULL, variable_thread_func, (void *)vtt);
+    }
+  }
+
+  // Acquire available thread
+  sem_wait(thread_sema);
+  pthread_t thread;
+  variable_transform_thread *vtt = (variable_transform_thread *)malloc(sizeof(variable_transform_thread));
+  if(!vtt) {
+    fatal(LOG_OUTPUT, "Dynamic memory allocation error in fixed_thread_scheduler(), fontblanc.c.");
+    exit(EXIT_FAILURE);
+  }
+  vtt->map_itr_start = map_index % map_len;
+  vtt->offset = working_offset;
+  vtt->length = c->file_len - working_offset;
+  vtt->dimension_vals = linked;
+  vtt->coeff = coeff;
+  vtt->ciph = c;
+  vtt->last = true;
+  scheduled_chunks += 1;
+  pthread_create(&thread, NULL, variable_thread_func, (void *)vtt);
+  // Wait for all threads to finish
+  pthread_mutex_lock(cipher_lock);
+  while(finished_chunks < scheduled_chunks) {
+    pthread_cond_wait(condvar, cipher_lock);
+  }
+  pthread_mutex_unlock(cipher_lock);
 }
 
 /*
@@ -194,19 +307,19 @@ void *fixed_thread_func(void *args) {
 }
 
 /*
- * Splits file into MAX_THREADS chunks each of which to be processed by a thread.
+ * Splits file into MAX_THREADS chunks each of which to be processed by a thread using fixed
+ * dimension tranformations.
  */
 void fixed_thread_scheduler(cipher *c, int coeff, int dimension) {
   long chunk_size;
   int chunk_index;
-  long working_offset = 0;
   finished_chunks = 0;
   scheduled_chunks = 0;
   if(c->file_len > dimension) {
     long calculations_per_chunk = c->file_len / dimension / MAX_THREADS;
     chunk_size = calculations_per_chunk * dimension;
     for(chunk_index = 0; chunk_index < (MAX_THREADS - 1); chunk_index++) {
-      if(working_offset + chunk_size > c->file_len) {
+      if((chunk_index * chunk_size) + chunk_size > c->file_len) {
         break;
       }
       // Acquire available thread
@@ -222,7 +335,6 @@ void fixed_thread_scheduler(cipher *c, int coeff, int dimension) {
       ftt->length = chunk_size;
       ftt->coeff = coeff;
       ftt->ciph = c;
-      working_offset += chunk_size;
       scheduled_chunks += 1;
       pthread_create(&thread, NULL, fixed_thread_func, (void *)ftt);
     }
@@ -670,7 +782,7 @@ void read_instructions(cipher *c, int coeff) {
     if(dimension > 0) { //fixed dimension
       fixed_thread_scheduler(c, coeff, dimension);
     } else { //flexible dimension
-      rand_distributor(c, coeff);
+      variable_thread_scheduler(c, coeff);
     }
     // todo move outside of instruction for loop?
     purge_maps(c);
