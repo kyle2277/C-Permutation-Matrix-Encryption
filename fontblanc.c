@@ -92,7 +92,7 @@ cipher *create_cipher(char *file_name, char *file_path, long file_len) {
   }
   init_ll_trash(MAX_DIMENSION);
   thread_sema = (sem_t *)malloc(sizeof(sem_t));
-  sem_init(thread_sema, 0, MAX_THREADS);
+  sem_init(thread_sema, 0, num_threads);
   cipher_lock = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
   pthread_mutex_init(cipher_lock, NULL);
   condvar = (pthread_cond_t *)malloc(sizeof(pthread_cond_t));
@@ -171,6 +171,9 @@ void rand_distributor(cipher *c, int coeff) {
   }
 }
 
+/*
+ * Processes a section of a file using variable dimension permutation matrices.
+ */
 void *variable_thread_func(void *args) {
   //create encrypt map of length required for file instead of looping
   //todo limits file size to max size of unsigned int in bytes, ~4GB
@@ -213,12 +216,12 @@ void variable_thread_scheduler(cipher *c, int coeff) {
   int map_index = 0;
   long working_offset = 0;
   long bytes_remaining = c->file_len;
-  long calculations_per_chunk = c->file_len / (MAX_DIMENSION) / MAX_THREADS;
+  long calculations_per_chunk = c->file_len / (MAX_DIMENSION) / num_threads;
   long approx = c->file_len / MAX_DIMENSION;
   char *linked = gen_linked_vals(c, (unsigned int)approx);
   int map_len = (int)strlen(linked);
   if(calculations_per_chunk > 0) {
-    for(int i = 0; i < (MAX_THREADS - 1); i++) {
+    for(int i = 0; i < (num_threads - 1); i++) {
       if(bytes_remaining < MAX_DIMENSION) {
         break;
       }
@@ -282,7 +285,7 @@ void variable_thread_scheduler(cipher *c, int coeff) {
 }
 
 /*
- * Processes a section of file using fixed dimension permutation matrix.
+ * Processes a section of a file using fixed dimension permutation matrix.
  */
 void *fixed_thread_func(void *args) {
   if(!args) {
@@ -317,9 +320,9 @@ void fixed_thread_scheduler(cipher *c, int coeff, int dimension) {
   finished_chunks = 0;
   scheduled_chunks = 0;
   if(c->file_len > dimension) {
-    long calculations_per_chunk = c->file_len / dimension / MAX_THREADS;
+    long calculations_per_chunk = c->file_len / dimension / num_threads;
     chunk_size = calculations_per_chunk * dimension;
-    for(chunk_index = 0; chunk_index < (MAX_THREADS - 1); chunk_index++) {
+    for(chunk_index = 0; chunk_index < (num_threads - 1); chunk_index++) {
       if((chunk_index * chunk_size) + chunk_size > c->file_len) {
         break;
       }
