@@ -21,7 +21,6 @@ clock_t time_total_gen;
 clock_t time_total_write;
 clock_t time_transformation;
 clock_t time_p_loop;
-clock_t time_parallel_computation;
 int thread_num = 1;
 
 // Synchronization variables
@@ -40,7 +39,7 @@ pthread_mutex_t *timer_lock;
  * Create a cipher structure for the given file with the given encryption key.
  * Returns the cipher structure.
  */
-cipher *create_cipher(char *file_name, char *file_path, long file_len, unsigned int num_threads) {
+cipher *create_cipher(char *file_name, char *file_path, long file_len) {
   cipher *c = malloc(sizeof(cipher));
   if(!c) {
     fatal(LOG_OUTPUT, "Dynamic memory allocation error in create_cipher(), fontblanc.c"); exit(EXIT_FAILURE);
@@ -107,7 +106,6 @@ int run(cipher *c, boolean encrypt) {
   time_total_write = 0;
   time_transformation = 0;
   time_p_loop = 0;
-  time_parallel_computation = 0;
   unsigned char *file_bytes = read_input(c);
   c->file_bytes = file_bytes;
   read_instructions(c, coeff);
@@ -146,7 +144,6 @@ void rand_distributor(cipher *c, int coeff) {
     pthread_cond_wait(condvar, cipher_lock);
   }
   pthread_mutex_unlock(cipher_lock);
-  time_parallel_computation = clock() - start;
 }
 
 /*
@@ -246,7 +243,6 @@ void fixed_distributor(cipher *c, int coeff, int dimension) {
     pthread_cond_wait(condvar, cipher_lock);
   }
   pthread_mutex_unlock(cipher_lock);
-  time_parallel_computation = clock() - start;
 }
 
 /*

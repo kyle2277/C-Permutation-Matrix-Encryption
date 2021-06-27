@@ -86,7 +86,7 @@ typedef struct thread_data {
 } thread_data;
 
 // Constructors and Destructors --------------------------------------------------------------------
-cipher *create_cipher(char *, char *, long, unsigned int);
+cipher *create_cipher(char *, char *, long);
 int close_cipher(cipher *);
 
 // Core operations ---------------------------------------------------------------------------------
