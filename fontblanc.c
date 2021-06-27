@@ -270,6 +270,7 @@ void fixed_distributor2(cipher *c, int coeff, int dimension) {
   while(dim_finished < dim_array_size) {
     pthread_cond_wait(condvar, data_lock);
   }
+  pthread_mutex_unlock(data_lock);
   printf("Performing linear transformations...\n");
   while(c->bytes_remaining >= dimension) {
     // Use fixed array stored in index 1
