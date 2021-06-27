@@ -83,7 +83,7 @@ typedef struct permut_thread {
 } permut_thread;
 
 // Constructors and Destructors --------------------------------------------------------------------
-cipher *create_cipher(char *, char *, long, unsigned int);
+cipher *create_cipher(char *, char *, long);
 int close_cipher(cipher *);
 
 // Core operations ---------------------------------------------------------------------------------

@@ -9,6 +9,7 @@
 
 #define LOG_OUTPUT "fontblanc_log.txt"
 #define BUFFER 256
+int num_threads;
 typedef enum { false, true } boolean;
 
 /*

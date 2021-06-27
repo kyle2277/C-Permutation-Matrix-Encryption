@@ -50,7 +50,7 @@ _Atomic int dim_finished;
  * Create a cipher structure for the given file with the given encryption key.
  * Returns the cipher structure.
  */
-cipher *create_cipher(char *file_name, char *file_path, long file_len, unsigned int num_threads) {
+cipher *create_cipher(char *file_name, char *file_path, long file_len) {
   cipher *c = malloc(sizeof(cipher));
   if(!c) {
     fatal(LOG_OUTPUT, "Dynamic memory allocation error in create_cipher(), fontblanc.c"); exit(-1);
