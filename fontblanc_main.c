@@ -20,6 +20,7 @@
 #define BILLION 1000000000L
 #define INIT_OPTIONS "iedD:k:o:xmsh"
 #define COMMAND_OPTIONS ":k:D:shr"
+#define EXPORT_TIME
 
 /*
  * Prints ASCII art splash.
@@ -342,6 +343,13 @@ int main(int argc, char **argv) {
   free_instructions(instructions, num_instructions);
 
   printf("Elapsed time (s): %Lf\n", difference);
+#ifdef EXPORT_TIME
+  FILE *time_out = fopen("fbc_elapsed_time.txt", "w");
+  char write[BUFFER];
+  snprintf(write, BUFFER, "%Lf", difference);
+  fwrite(write, sizeof(char), strlen(write), time_out);
+  fclose(time_out);
+#endif
   printf("Done.\n");
   return ciph_status;
 }
