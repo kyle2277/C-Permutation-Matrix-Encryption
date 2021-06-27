@@ -18,7 +18,7 @@
 #include <termios.h>
 
 #define BILLION 1000000000L
-#define INIT_OPTIONS "iedD:k:o:xmsh"
+#define INIT_OPTIONS "iedD:k:o:xmst:h"
 #define COMMAND_OPTIONS ":k:D:shr"
 #define EXPORT_TIME
 
@@ -104,6 +104,9 @@ int read_initial_state(initial_state *init, int argc, char **argv) {
         break;
       case 's':
         init->integrity_check = false;
+        break;
+      case 't':
+        // Placeholder for thread option
         break;
       case 'h':
         // Print main help
