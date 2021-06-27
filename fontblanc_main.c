@@ -18,9 +18,10 @@
 #include <getopt.h>
 #include <termios.h>
 
-#define INIT_OPTIONS "iedD:k:o:xmsh"
+#define INIT_OPTIONS "iedD:k:o:xmst:h"
 #define COMMAND_OPTIONS ":k:D:shr"
 #define BILLION 1000000000L
+#define EXPORT_TIME
 
 /*
  * Prints ASCII art splash.
@@ -104,6 +105,14 @@ int read_initial_state(initial_state *init, int argc, char **argv) {
         break;
       case 's':
         init->integrity_check = false;
+        break;
+      case 't':
+        int_arg = (int)strtol(optarg, &remaining, 10);
+        if (int_arg > 0) {
+          num_threads = int_arg;
+        } else {
+          fatal(LOG_OUTPUT, "Argument for thread option (-t) must be a positive integer.");
+        }
         break;
       case 'h':
         // Print main help
@@ -289,10 +298,15 @@ int main(int argc, char **argv) {
     exit(1);
     //fatal(LOG_OUTPUT, "Invalid usage - must specify encrypt (-e) or decrypt (-d) mode.");
   }
+  // Set number of threads to 1 if not set
+  if(num_threads <= 0) {
+    num_threads = 1;
+  }
   printf("File name: %s\n", file_name);
   printf("File size: %ld bytes\n", file_len);
   printf("Mode: %s\n", init->encrypt ? "encrypt" : "decrypt");
-  cipher *ciph = create_cipher(file_name, just_path, file_len, MAX_THREADS);
+  printf("Threads: %d\n", num_threads);
+  cipher *ciph = create_cipher(file_name, just_path, file_len);
   //app welcome
   main_help();
   instruction **instructions = (instruction **)malloc(sizeof(instruction *) * MAX_INSTRUCTIONS);
@@ -343,6 +357,13 @@ int main(int argc, char **argv) {
   free(init);
   free_instructions(instructions, num_instructions);
   printf("Elapsed time (s): %Lf\n", difference);
+#ifdef EXPORT_TIME
+  FILE *time_out = fopen("fbc_elapsed_time.txt", "w");
+  char write[BUFFER];
+  snprintf(write, BUFFER, "%Lf", difference);
+  fwrite(write, sizeof(char), strlen(write), time_out);
+  fclose(time_out);
+#endif
   printf("Done.\n");
   return ciph_status;
 }

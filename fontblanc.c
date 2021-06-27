@@ -42,7 +42,7 @@ int dim_index;
  * Create a cipher structure for the given file with the given encryption key.
  * Returns the cipher structure.
  */
-cipher *create_cipher(char *file_name, char *file_path, long file_len, unsigned int num_threads) {
+cipher *create_cipher(char *file_name, char *file_path, long file_len) {
   cipher *c = malloc(sizeof(cipher));
   if(!c) {
     fatal(LOG_OUTPUT, "Dynamic memory allocation error in create_cipher(), fontblanc.c"); exit(-1);
@@ -152,7 +152,7 @@ void *thread_func(void *args) {
 void rand_distributor2(cipher *c, int coeff) {
   // 10 slots for perumation matrices, 9 mapped to base 10 digits 1-9 + one extra for last
   // matrix of arbitrary size
-  pthread_t **threads = (pthread_t **)calloc(MAX_THREADS, sizeof(pthread_t *));
+  pthread_t **threads = (pthread_t **)calloc(num_threads, sizeof(pthread_t *));
   dim_array = (int *)calloc(11, sizeof(int));
   if(!dim_array || !threads) {
     fatal(LOG_OUTPUT, "Dynamic memory allocation error in rand_distributor(), fontblanc.c.");
@@ -169,7 +169,7 @@ void rand_distributor2(cipher *c, int coeff) {
   // Generate permutation matrices in parallel
   while(dim_index < dim_array_size) {
     // Create threads
-    for(int i = 0; i < MAX_THREADS; i++) {
+    for(int i = 0; i < num_threads; i++) {
       if (dim_index >= dim_array_size) {
         break;
       }
@@ -186,7 +186,7 @@ void rand_distributor2(cipher *c, int coeff) {
       dim_index += 1;
     }
     // Join threads
-    for(int i = 0; i < MAX_THREADS; i++) {
+    for(int i = 0; i < num_threads; i++) {
       if(threads[i]) {
         pthread_join(*(threads[i]), NULL);
         free(threads[i]);
