@@ -73,23 +73,39 @@ typedef struct cipher{
     boolean integrity_check;
 } cipher;
 
+/*
+ * Information for a thread generating a permutation matrix of specified dimension.
+ */
+typedef struct permut_thread {
+  int index;
+  int dimension;
+  node **trash;
+  int trash_index;
+  cipher *c;
+  boolean inverse;
+  // Indicates whether thread should call post on thread counting semaphore and detach upon completion
+  boolean post;
+} permut_thread;
+
 // Constructors and Destructors --------------------------------------------------------------------
 cipher *create_cipher(char *, char *, long);
 int close_cipher(cipher *);
 
 // Core operations ---------------------------------------------------------------------------------
 int run(cipher *, boolean);
-void rand_distributor(cipher *, int);
 void *variable_thread_func(void *);
 void variable_thread_scheduler(cipher *, int);
 void *fixed_thread_func(void *);
 void fixed_thread_scheduler(cipher *, int, int);
-void fixed_distributor(cipher *, int, int);
 void permut_cipher(cipher *, int, long);
 
 // Matrix operations -------------------------------------------------------------------------------
 struct PMAT *init_permut_mat(int);
-struct PMAT *gen_permut_mat(cipher *, int, boolean);
+int pull_node(node **, int, permut_thread *);
+void *permut_thread_func(void *);
+void gen_variable_permut_mats(cipher *, int);
+void gen_fixed_permut_mats(cipher *, int, int);
+struct PMAT *gen_permut_mat(permut_thread *);
 double *transform_vec(int, unsigned char bytes[], struct PMAT *, boolean);
 struct PMAT *orthogonal_transpose(struct PMAT *);
 int dot_product(double a[], double b[], int);

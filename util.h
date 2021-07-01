@@ -54,15 +54,11 @@ typedef struct node {
   int number;
 } node;
 
-node **trash;
-int trash_indx;
-
-void init_ll_trash(int);
+node **init_ll_trash(int);
 node *build_ll(node *, int);
-int pull_node(node **, int);
 void remove_node(node **, node *);
-void empty_trash(void);
-void free_ll_trash();
+void empty_trash(node **, int);
+void free_ll_trash(node **);
 
 // FontBlanc_C helpers -----------------------------------------------------------------------------
 char *get_extension(char *);
