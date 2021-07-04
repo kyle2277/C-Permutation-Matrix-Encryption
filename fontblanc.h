@@ -61,6 +61,7 @@ typedef struct cipher{
     struct PMAT **permut_map;
     char *log_path;
     char *file_name;
+    char *output_name;
     char *file_path;
     char encrypt_key[1000];
     int encrypt_key_val;
@@ -88,7 +89,7 @@ typedef struct permut_thread {
 } permut_thread;
 
 // Constructors and Destructors --------------------------------------------------------------------
-cipher *create_cipher(char *, char *, long);
+cipher *create_cipher(char *, char *, long, char *);
 int close_cipher(cipher *);
 
 // Core operations ---------------------------------------------------------------------------------

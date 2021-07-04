@@ -58,7 +58,7 @@ void instruction_help() {
 int read_initial_state(initial_state *init, int argc, char **argv) {
   init->encrypt = -1;
   init->encrypt_key = (char *)calloc(BUFFER, sizeof(char));
-  init->output_path = (char *)calloc(BUFFER, sizeof(char));
+  init->output_name = (char *)calloc(BUFFER, sizeof(char));
   init->dimension = 0;
   init->delete_when_done = false;
   init->multilevel = false;
@@ -96,7 +96,7 @@ int read_initial_state(initial_state *init, int argc, char **argv) {
         strncpy(init->encrypt_key, optarg, strlen(optarg));
         break;
       case 'o':
-        strncpy(init->output_path, optarg, strlen(optarg));
+        strncpy(init->output_name, optarg, strlen(optarg));
         break;
       case 'x':
         init->delete_when_done = true;
@@ -307,7 +307,7 @@ int main(int argc, char **argv) {
   printf("File size: %ld bytes\n", file_len);
   printf("Mode: %s\n", init->encrypt ? "encrypt" : "decrypt");
   printf("Threads: %d\n", num_threads);
-  cipher *ciph = create_cipher(file_name, just_path, file_len);
+  cipher *ciph = create_cipher(file_name, just_path, file_len, init->output_name);
   //app welcome
   main_help();
   instruction **instructions = (instruction **)malloc(sizeof(instruction *) * MAX_INSTRUCTIONS);
@@ -350,7 +350,7 @@ int main(int argc, char **argv) {
   clean_instructions(instructions, num_instructions);
   close_cipher(ciph);
   free(init->encrypt_key);
-  free(init->output_path);
+  free(init->output_name);
   free(processed[0]);
   free(processed[1]);
   free(processed);
