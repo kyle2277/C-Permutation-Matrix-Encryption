@@ -25,7 +25,7 @@ typedef struct initial_state {
   // Specifies whether to enter instruction input loop for multiple passes
   boolean multilevel;
   char *encrypt_key;
-  char *output_path;
+  char *output_name;
 } initial_state;
 
 /*

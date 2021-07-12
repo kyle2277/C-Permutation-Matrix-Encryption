@@ -95,13 +95,14 @@ typedef struct variable_transform_thread {
  * Create a cipher structure for the given file with the given encryption key.
  * Returns the cipher structure.
  */
-cipher *create_cipher(char *file_name, char *file_path, long file_len) {
+cipher *create_cipher(char *file_name, char *file_path, long file_len, char *output_name) {
   cipher *c = malloc(sizeof(cipher));
   if(!c) {
     fatal(LOG_OUTPUT, "Dynamic memory allocation error in create_cipher(), fontblanc.c"); exit(-1);
   }
   c->log_path = LOG_OUTPUT;
   c->file_name = file_name;
+  c->output_name = output_name;
   c->file_path = file_path;
   c->file_len = file_len;
   c->bytes_remaining = file_len;
@@ -172,29 +173,6 @@ int run(cipher *c, boolean encrypt) {
 }
 
 /*
- * DEPRECATED. Process file using pseudo-random matrix dimensions.
- */
-void rand_distributor(cipher *c, int coeff) {
-  //create encrypt map of length required for file instead of looping
-  //todo limits file size to max size of unsigned int in bytes, ~4GB
-  while(c->bytes_remaining > MAX_DIMENSION) {
-    int approx = (unsigned int)c->bytes_remaining/MAX_DIMENSION;
-    char *linked = gen_linked_vals(c, approx);
-    int map_len = (int)strlen(linked);
-    for(int map_itr = 0; c->bytes_remaining >= MAX_DIMENSION; map_itr++) {
-      int tmp = (charAt(linked, map_itr % map_len) - '0');
-      int dimension = tmp > 1 ? MAX_DIMENSION - (MAX_DIMENSION / tmp) : MAX_DIMENSION;
-      permut_cipher(c, coeff * dimension, 0);
-    }
-    free(linked);
-  }
-  int b = (int) c->bytes_remaining;
-  if(b > 0) {
-    permut_cipher(c, coeff*b, 0);
-  }
-}
-
-/*
  * Processes a section of a file using variable dimension permutation matrices.
  */
 void *variable_thread_func(void *args) {
@@ -213,7 +191,7 @@ void *variable_thread_func(void *args) {
       int map_index = (charAt(vtt->dimension_vals, map_itr % map_len) - '0');
       map_index = map_index > 1 ? map_index : 1;
       int dimension = map_index > 1 ? MAX_DIMENSION - (MAX_DIMENSION / map_index) : MAX_DIMENSION;
-      permut_cipher(vtt->ciph, vtt->coeff * map_index, working_offset);
+      permut_cipher(vtt->ciph, map_index, working_offset);
       bytes_remaining -= dimension;
       working_offset += dimension;
     }
@@ -233,7 +211,7 @@ void *variable_thread_func(void *args) {
     pthread_join(thread, NULL);
     dim_array_size += 1;
     // Last matrix stored 11th array slot, index 10
-    permut_cipher(vtt->ciph, vtt->coeff * 10, working_offset);
+    permut_cipher(vtt->ciph, 10, working_offset);
   }
   free(vtt);
   finished_chunks += 1;
@@ -333,13 +311,13 @@ void *fixed_thread_func(void *args) {
   long working_offset = ftt->offset;
   while(bytes_remaining >= ftt->dimension) {
     // Permutation matrix of size dimension stored in permut_map index 1
-    permut_cipher(ftt->ciph, ftt->coeff * 1, working_offset);
+    permut_cipher(ftt->ciph, 1, working_offset);
     bytes_remaining -= ftt->dimension;
     working_offset += ftt->dimension;
   }
   if(bytes_remaining > 0) {
     // Permutation matrix of size bytes_remaining stored in permut_map index 2
-    permut_cipher(ftt->ciph, ftt->coeff * 2, working_offset);
+    permut_cipher(ftt->ciph, 2, working_offset);
   }
   free(ftt);
   finished_chunks += 1;
@@ -408,19 +386,6 @@ void fixed_thread_scheduler(cipher *c, int coeff, int dimension) {
     pthread_cond_wait(condvar, cipher_lock);
   }
   pthread_mutex_unlock(cipher_lock);
-}
-
-/*
- * DEPRECATED. Process file using a fixed matrix dimension.
- */
-void fixed_distributor(cipher *c, int coeff, int dimension) {
-  while(c->bytes_remaining >= dimension) {
-    permut_cipher(c, coeff*dimension, 0);
-  }
-  int b = (int)c->bytes_remaining;
-  if(b > 0) {
-    permut_cipher(c, coeff*b, 0);
-  }
 }
 
 /*
@@ -806,46 +771,47 @@ int key_sum(char *s) {
  * Reads entire file into the program.
  */
 unsigned char* read_input(cipher *c) {
-    long file_len = c->file_len;
-    FILE *in;
-    char *f_in_path = (char *)malloc(sizeof(char) * BUFFER);
-    sprintf(f_in_path, "%s%s", c->file_path, c->file_name);
-    in = fopen(f_in_path, "r");
-    unsigned char *file_bytes = (unsigned char *)calloc((size_t)file_len + 1, sizeof(unsigned char));
-    fread(file_bytes, sizeof(unsigned char), (size_t)file_len, in);
-    free(f_in_path);
-    fclose(in);
-    return file_bytes;
+  long file_len = c->file_len;
+  FILE *in;
+  char *f_in_path = (char *)malloc(sizeof(char) * BUFFER);
+  sprintf(f_in_path, "%s%s", c->file_path, c->file_name);
+  in = fopen(f_in_path, "r");
+  unsigned char *file_bytes = (unsigned char *)calloc((size_t)file_len + 1, sizeof(unsigned char));
+  fread(file_bytes, sizeof(unsigned char), (size_t)file_len, in);
+  free(f_in_path);
+  fclose(in);
+  return file_bytes;
 }
 
 /*
  * Writes encrypted/decrypted data to file.
  */
 void write_output(cipher *c, int coeff) {
-    char *f_out_path = (char *)malloc(sizeof(char) * BUFFER);
-    char *extension = get_extension(c->file_name);
-    if(coeff > 0) { //encrypt
-        // Only add extension to output if it doesn't already exist
-        if(strcmp(extension, ENCRYPT_EXT) == 0) {
-          sprintf(f_out_path, "%s%s", c->file_path, c->file_name);
-        } else {
-          sprintf(f_out_path, "%s%s%s", c->file_path, c->file_name, ENCRYPT_EXT);
-        }
-    } else { //decrypt
-        // Check if need to remove extension
-        if(strcmp(extension, ENCRYPT_EXT) == 0) {
-          // remove extension
-          remove_extension(c->file_name, ENCRYPT_EXT);
-        }
-        sprintf(f_out_path, "%s%s%s", c->file_path, DECRYPT_TAG, c->file_name);
+  char *f_out_path = (char *)malloc(sizeof(char) * BUFFER);
+  char *extension = get_extension(c->file_name);
+  char *output_name = strlen(c->output_name) > 0 ? c->output_name : c->file_name;
+  if(coeff > 0) { //encrypt
+    // Only add extension to output if it doesn't already exist
+    if(strcmp(extension, ENCRYPT_EXT) == 0) {
+      sprintf(f_out_path, "%s%s", c->file_path, c->file_name);
+    } else {
+      sprintf(f_out_path, "%s%s%s", c->file_path, output_name, ENCRYPT_EXT);
     }
-    FILE *out = fopen(f_out_path, "w");
-    long file_len = c->file_len;
-    fwrite(c->file_bytes, sizeof(unsigned char), (size_t)file_len, out);
-    free(f_out_path);
-    fclose(out);
-    // DEBUG OUTPUT
-//    fclose(debug);
+  } else { //decrypt
+    // Check if need to remove extension
+    if(strcmp(extension, ENCRYPT_EXT) == 0) {
+      // remove extension
+      remove_extension(c->file_name, ENCRYPT_EXT);
+    }
+    sprintf(f_out_path, "%s%s%s", c->file_path, DECRYPT_TAG, output_name);
+  }
+  FILE *out = fopen(f_out_path, "w");
+  long file_len = c->file_len;
+  fwrite(c->file_bytes, sizeof(unsigned char), (size_t)file_len, out);
+  free(f_out_path);
+  fclose(out);
+  // DEBUG OUTPUT
+  //fclose(debug);
 }
 
 /*
@@ -872,23 +838,23 @@ char *gen_linked_vals(cipher *c, int length) {
  * Generates unique, pseudo-random string of numbers using the encryption key.
  */
 char *gen_log_base_str(cipher *c, double log_base) {
-    double output = log(c->encrypt_key_val) / log(log_base);
-    char *log_base_str = (char *)malloc(sizeof(char) * 32);
-    sprintf(log_base_str, "%.16lf", output);
-    //gets rid of everything before the decimal
-    char *ch = log_base_str;
-    while(*ch != '.') {
-        ch++;
-    }
-    ch++;
-    char *final_output = (char *)calloc(32, sizeof(char));
-    strncpy(final_output, ch, (size_t)15);
-    // DEBUG OUTPUT
+  double output = log(c->encrypt_key_val) / log(log_base);
+  char *log_base_str = (char *)malloc(sizeof(char) * 32);
+  sprintf(log_base_str, "%.16lf", output);
+  //gets rid of everything before the decimal
+  char *ch = log_base_str;
+  while(*ch != '.') {
+      ch++;
+  }
+  ch++;
+  char *final_output = (char *)calloc(32, sizeof(char));
+  strncpy(final_output, ch, (size_t)15);
+  // DEBUG OUTPUT
 //    char *write_debug = (char *)malloc(sizeof(char)*32);
 //    sprintf(write_debug, "%s\n", final_output);
 //    fwrite(write_debug, sizeof(char), strlen(write_debug), debug);
-    free(log_base_str);
-    return final_output;
+  free(log_base_str);
+  return final_output;
 }
 
 // Instructions ------------------------------------------------------------------------------------
