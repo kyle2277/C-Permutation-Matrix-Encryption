@@ -322,7 +322,7 @@ int main(int argc, char **argv) {
   int num_instructions = 0;
   // If first instruction included in program execution statement, add to instruction set,
   // else enter instruction input loop
-  if(strlen(init->encrypt_key) > 0 || init->dimension > 0 || !init->integrity_check) {
+  if(strlen(init->encrypt_key) > 0 || init->dimension >= 0 || !init->integrity_check) {
     // Check if need key input
     if(strlen(init->encrypt_key) == 0) {
       get_key(init->encrypt_key);
