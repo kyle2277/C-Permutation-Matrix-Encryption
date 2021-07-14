@@ -9,8 +9,11 @@
 
 #define LOG_OUTPUT "fontblanc_log.txt"
 #define BUFFER 256
-int num_threads;
 typedef enum { false, true } boolean;
+// Max number of threads to use
+int num_threads;
+// Print information for debugging
+boolean verbose;
 
 /*
  * Contains global information from initial arguments. Can include first instruction.

@@ -165,10 +165,12 @@ int run(cipher *c, boolean encrypt) {
     c->file_bytes = file_bytes;
     read_instructions(c, coeff);
     write_output(c, coeff);
-    printf("Time generating permutation matrices (ms): %.2lf\n", (double)time_total_gen*1000/CLOCKS_PER_SEC);
-    printf("Time writing matrices to file (ms): %.2lf\n", (double)time_total_write*1000/CLOCKS_PER_SEC);
-    printf("Time performing linear transformation (ms): %.2lf\n", (double)time_transformation*1000/CLOCKS_PER_SEC);
-    printf("Time in node pull loop (ms): %.2lf\n", (double)time_p_loop*1000/CLOCKS_PER_SEC);
+    if(verbose) {
+      printf("Time generating permutation matrices (ms): %.2lf\n", (double)time_total_gen*1000/CLOCKS_PER_SEC);
+      printf("Time writing matrices to file (ms): %.2lf\n", (double)time_total_write*1000/CLOCKS_PER_SEC);
+      printf("Time performing linear transformation (ms): %.2lf\n", (double)time_transformation*1000/CLOCKS_PER_SEC);
+      printf("Time in node pull loop (ms): %.2lf\n", (double)time_p_loop*1000/CLOCKS_PER_SEC);
+    }
     return 1;
 }
 
@@ -235,7 +237,9 @@ void variable_thread_scheduler(cipher *c, int coeff) {
   long approx = c->file_len / MAX_DIMENSION;
   char *linked = gen_linked_vals(c, (unsigned int)approx);
   int map_len = (int)strlen(linked);
-  printf("Performing linear transformations...\n");
+  if(verbose) {
+    printf("Performing linear transformations...\n");
+  }
   if(calculations_per_chunk > 0) {
     for(int i = 0; i < (num_threads - 1); i++) {
       if(bytes_remaining < MAX_DIMENSION) {
@@ -336,7 +340,9 @@ void fixed_thread_scheduler(cipher *c, int coeff, int dimension) {
   int chunk_index;
   finished_chunks = 0;
   scheduled_chunks = 0;
-  printf("Performing linear transformations...\n");
+  if(verbose) {
+    printf("Performing linear transformations...\n");
+  }
   if(c->file_len > dimension) {
     long calculations_per_chunk = c->file_len / dimension / num_threads;
     chunk_size = calculations_per_chunk * dimension;
@@ -479,7 +485,9 @@ void *permut_thread_func(void *args) {
   free_ll_trash(pt->trash);
   dim_finished ++;
   pthread_cond_broadcast(condvar);
-  printf("Finished mat: %d\n", pt->dimension);
+  if(verbose) {
+    printf("Finished mat: %d\n", pt->dimension);
+  }
   free(pt);
   if(pt->post) {
     // Make new thread available
@@ -507,8 +515,9 @@ void gen_variable_permut_mats(cipher *c, int coeff) {
   for(int i = 1; i < 10; i++) {
     dim_array[i] = i > 1 ? MAX_DIMENSION - (MAX_DIMENSION / i) : MAX_DIMENSION;
   }
-
-  printf("Generating matrices...\n");
+  if(verbose) {
+    printf("Generating matrices...\n");
+  }
   // Generate permutation matrices in parallel
   while(dim_index < dim_array_size) {
     // Wait until a thread is available
@@ -547,7 +556,9 @@ void gen_fixed_permut_mats(cipher *c, int coeff, int dimension) {
   dim_array[2] = last_dim;
   dim_finished = 1;
   dim_index = 1;
-  printf("Generating matrices...\n");
+  if(verbose) {
+    printf("Generating matrices...\n");
+  }
   // Generate permutation matrices in parallel
   while(dim_index < dim_array_size) {
     // Wait until a thread is available
@@ -579,7 +590,9 @@ struct PMAT *gen_permut_mat(permut_thread *pt) {
   cipher *c = pt->c;
   int dimension = pt->dimension;
   boolean inverse = pt->inverse;
-  printf("%s%d\n", "gen mat: ", dimension);
+  if(verbose) {
+    printf("%s%d\n", "Gen mat: ", dimension);
+  }
   char *linked = gen_linked_vals(c, 2*dimension);
   //create linked lists used to build matrices
   node *i_head = (node *)malloc(sizeof(node));
@@ -758,7 +771,9 @@ int key_sum(char *s) {
     int add = (*s+*(s+1))<<i;
     sum = add-sum;
   }
-  printf("%d\n", sum);
+  if(verbose) {
+    printf("Key sum: %d\n", sum);
+  }
   // DEBUG OUTPUT
 //    char *debug_out = (char *)malloc(sizeof(char)*256);
 //    sprintf(debug_out, "%d\n", sum);
@@ -900,7 +915,8 @@ void read_instructions(cipher *c, int coeff) {
     b = 1;
   }
   //iterate through instructions
-  for(int i = a; i < b; i++) {
+  int pass_index = 1;
+  for(int i = a; i < b; i++, pass_index++) {
     instruction *cur = c->instructions[abs(i)];
     c->bytes_remaining = c->file_len;
     c->bytes_processed = 0;
@@ -911,6 +927,7 @@ void read_instructions(cipher *c, int coeff) {
     memcpy(c->encrypt_key, cur->encrypt_key, sizeof(char) * key_len + 1);
     //memset(cur->encrypt_key, '\0', sizeof(char)*key_len);
     c->encrypt_key_val = key_sum(c->encrypt_key);
+    printf("Executing instruction %d...\n", pass_index);
     if(dimension > 0) { //fixed dimension
       // Generate matrices
       gen_fixed_permut_mats(c, coeff, dimension);

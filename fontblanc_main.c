@@ -18,16 +18,21 @@
 #include <termios.h>
 
 #define BILLION 1000000000L
-#define INIT_OPTIONS "iedD:k:o:xmst:h"
+#define INIT_OPTIONS "edD:k:o:xmst:hv"
 #define COMMAND_OPTIONS ":k:D:shr"
+
 // Writes elapsed time to a file called fbc_elapsed_time.txt when EXPORT_TIME defined
 // Overwrites file on every execution
-#define EXPORT_TIME
+// Used for performance testing
+//#define EXPORT_TIME
 
 /*
  * Prints ASCII art splash.
  */
 void splash() {
+  if(!verbose) {
+    return;
+  }
   FILE *splash;
   if((splash = fopen("./splash.txt", "r"))) {
     fseek(splash, 0, SEEK_END);
@@ -118,6 +123,9 @@ int read_initial_state(initial_state *init, int argc, char **argv) {
       case 'h':
         // Print main help
         main_help();
+        break;
+      case 'v':
+        verbose = true;
         break;
       case ':':
         sprintf(error, "Missing argument for -%c\n", optopt);
@@ -303,13 +311,13 @@ int main(int argc, char **argv) {
   if(num_threads <= 0) {
     num_threads = 1;
   }
+  //app welcome
+  splash();
   printf("File name: %s\n", file_name);
   printf("File size: %ld bytes\n", file_len);
   printf("Mode: %s\n", init->encrypt ? "encrypt" : "decrypt");
   printf("Threads: %d\n", num_threads);
   cipher *ciph = create_cipher(file_name, just_path, file_len, init->output_name);
-  //app welcome
-  main_help();
   instruction **instructions = (instruction **)malloc(sizeof(instruction *) * MAX_INSTRUCTIONS);
   int num_instructions = 0;
   // If first instruction included in program execution statement, add to instruction set,
