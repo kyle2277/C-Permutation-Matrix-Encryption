@@ -42,7 +42,7 @@ The Font_Blanc_C algorithm is predicated on the fact that the multiplication of 
 <code>For some invertible matrix M, and some vectors a and b, it is true that</code>  
 <code>Ma = b and M<sup>-1</sup>b = a</code>  
 
-Imagine that all the bytes making up a file is a vector of length n. If we create an inveritble nxn matrix, M, and multiply it with the file vector, the resultant vector will be a transformed (encrypted) version of the data. By Theorem A, to reverse the transformation (decrypt the data) we have to calculate the inverse of M and then multiply it with the encrypted data vector. However, despite the fact that this process functions as an encryption algorithm in theory, in practice it is very computationally expensive to 1) generate an arbitrary invertible matrix from an encryption key and 2) calculate the inverse of an invertible matrix.  
+Imagine that all the bytes making up a file is a vector of length n. If we create an inveritble n-dimensional square matrix, M, and multiply it with the file vector, the resultant vector will be a transformed (encrypted) version of the data. By Theorem A, to reverse the transformation (decrypt the data) we have to calculate the inverse of M and then multiply it with the encrypted data vector. However, despite the fact that this process functions as an encryption algorithm in theory, in practice it is very computationally expensive to 1) generate an arbitrary invertible matrix from an encryption key and 2) calculate the inverse of an invertible matrix.  
 
 Is there a way to harness the simple encrypt and decryptability of a vector outlined in Theorem A without the use of  expensive algorithms?  
 
