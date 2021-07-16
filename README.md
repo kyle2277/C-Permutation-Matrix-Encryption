@@ -89,7 +89,7 @@ To increase the performance of generating the permutation matrices, I decided to
 
 For fixed-dimension encryption, I expect a speedup of no more than 50%, because only 2 matrices have to be generated and they can both be done in parallel. The graph below shows how both schemes perform. Displayed is the number of threads vs elapsed time for three passes of fixed-dimension encryption.
 
-
+<img src="" width="700"></img>  
 
 ## Usage
 Run with `fontblanc <input filepath> <options ...>`.  
