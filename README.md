@@ -68,13 +68,35 @@ To measure performance, I've defined 2 major sections of the program whose elaps
 1) the generation of permutation matrices
 2) the execution of linear transformations (matrix multiplication)   
 
+I've chosen these two sections because combined they make up over 50% of the runtime of the program and they're both parallelizable.
+
 For all tests I used [this]() PDF of the U.S. Constitution named `Constitution.pdf`. The test file, as it will be referred as, is 4488706 bytes (4.3 MiB) long. All tests were run on a 4-core, 8-thread, Intel(R) Core(TM) i7-7500U CPU @ 2.7GHz. All testing was done in file encryption because decryption is expected to have the same performance. The data presented here for each experimental group is the average result of 5 runs.  
 
+Program speedup calculations were performed using Ahmdahl's Law defined as follows:
+
+    S(N) = Maximum speedup
+    N = Number of processors
+    P = Proportion of runtime that is parallelizable
+    
+    S(N) = 1 / ((1 - P) + (P / N))  
+    
 ### Single Threaded Benchmark
-The following table is the result of the control test. Specifically, a single pass of single-threaded, variable-dimension encryption on the test file. The command ran:
+In order to determine which sections of the program take up the most runtime, I ran control tests for both fixed-dimension and variable-dimension encryption.
+The following table is the result of the fixed-dimension test. Specifically, a single pass of single-threaded encryption on the test file using a permutation matrix dimension of 4096. The command ran:
     
+    $ ./fontblanc Constitution.pdf -e -D 4096 -k keyfoobar  
+
+| Measured Section | Time (ms) | Proportion of Runtime (%) |  
+| :-------------- | :-------: | :----------: |  
+| Generating matrices | 49.81 | 35 |  
+| Linear transformations | 55.46 | 39 |  
+| Rest of program | 36.18 | 26 |  
+| Elapsed time | 141.45 | 100 |  
+
+The following table is the results of the variable-dimension test. Specifically, a single pass of single-threaded, variable-dimension encryption on the test file. The command ran:
+
     $ ./fontblanc Constitution.pdf -e -k keyfoobar  
-    
+
 | Measured Section | Time (ms) | Proportion of Runtime (%) |  
 | :-------------- | :-------: | :----------: |  
 | Generating matrices | 707.27 | 87 |  
@@ -82,14 +104,28 @@ The following table is the result of the control test. Specifically, a single pa
 | Rest of program | 45.02 | 5.5 |  
 | Elapsed time | 812.92 | 100 |  
 
-This data shows that the generation of permutation matrices takes up the largest proportion of runtime and is therefore the area that optimization efforts should be focused.
+The data shows that the generation of permutation matrices and the linear transformations both take up a similar proportion of the runtime for fixed-dimension encryption while the generation of permutation matrices takes up a significanly larger proportion of runtime for variable-dimension encryption. This is expected because no more than 2 matrices need to be generated for fixed-dimension while up to 10 matrices need to be generated for variable-dimension. It is worth noting that the time for linear transformations is almost the same in both tests. This is due to the fact that the input file is the same, so a similar number of transformations are applied in both tests.  
+
+In conclusion, the time to generate permutation matrices is the largest contributing factor to varying execution times and, therefore, is the area that optimization efforts should be focused.  
 
 ### Multithreading the Generation of Permutation Matrices
-To increase the performance of generating the permutation matrices, I decided to employ multithreading. I designed 2 multithreading schemes, pthread-permut and pthread-permut-join. Both schemes schedule the generation of each matrix to a new thread, but pthread-permut does not synchronize the completion of the threads, while pthread-permut-join does.  
+To increase the performance of generating permutation matrices, I designed 2 multithreading schemes which will be referenced to as permut-pthread and permut-pthread-join. Both schemes schedule the generation of each matrix to a new thread, but permut-pthread does not synchronize the completion of the threads while permut-pthread-join does.  
 
-For fixed-dimension encryption, I expect a speedup of no more than 50%, because only 2 matrices have to be generated and they can both be done in parallel. The graph below shows how both schemes perform. Displayed is the number of threads vs elapsed time for three passes of fixed-dimension encryption.
+For fixed-dimension encryption, since matrix generation makes up 35% of the runtime, by [Ahmdahl's Law](#independent-variables-and-testing-methodology) I'm expecting an approximate speedup of 1.2. The speedup is limited by the fact that only 2 matrices need to be generated, therefore the factor of speedup cannot be greater than 2 because each thread only handles 1 matrix.  
 
-<img src="" width="700"></img>  
+The graph below shows how both schemes perform. Displayed is the number of threads vs elapsed time for three passes of fixed-dimension encryption.
+
+<img src="https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Graphics/GenPmat_Fixed.png" Alt="Elapsed Time vs Number Threads for Fixed-Dimension Encryption" width="600"></img>  
+
+Evidently, the permut-pthread scheme is marginally better than permut-pthread-join. As expected, the performance gain appears at 2 threads and doesn't improve when using more. The average program execution time with 2 or more threads was approximately 445 ms. The control execution time average was 538 ms. This is a speedup of 1.21.  
+
+For variable-dimension encryption, since matrix generation makes up 87% of the runtime, by [Ahmdahl's Law](#independent-variables-and-testing-methodology) I'm expexting an approximate speedup of 2.8. Since there are 10 matrices to generate for variable-dimension encryption, the maximum speedup would be achieved by running 10 threads in parallel however my CPU limits the factor of speedup to 4 since its dual core hyperthreaded at 2 threads per core.
+
+The graph below shows how both schemes perform. Displayed is the number of threads vs elapsed time for three passes of variable-dimension encryption.  
+
+<img src="https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Graphics/GenPmat_Fixed.png" Alt="Elapsed Time vs Number Threads for Fixed-Dimension Encryption" width="600"></img>  
+
+
 
 ## Usage
 Run with `fontblanc <input filepath> <options ...>`.  
