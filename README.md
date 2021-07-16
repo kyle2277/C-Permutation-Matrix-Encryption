@@ -16,6 +16,9 @@ The program has built-in multipass encryption, supporting up to 10 layers of enc
 >> [Encryption in Chunks](#encryption-in-chunks)  
 >
 > [Performance](#performance)  
+>> [Independent Variables and Testing Methodology](#independent-variables-and-testing-methodology)  
+>> [Single Threaded Benchmark](#single-threaded-benchmark)  
+>
 > [Usage](#usage)  
 >> [Execution Flags](#execution-flags)  
 >> [Instruction Flags](#instruction-flags)  
@@ -60,18 +63,45 @@ Creating a permutation matrix the size of the length of an input file would be i
 Encrypting in chunks is less than ideal because it means that reordered bytes stay relatively close to their original position, but it's a necessary compromise for efficiency. The issue can be mitigated to some extent by performing multiple passes of encryption using a mix of differing fixed-dimension passes and variable-dimension passes.  
 
 ## Performance  
+### Independent Variables and Testing Methodology
+To measure performance, I've defined 2 major sections of the program whose elapsed execution times will be anlalyzed:  
+1) the generation of permutation matrices
+2) the execution of linear transformations (matrix multiplication)   
+
+For all tests I used [this]() PDF of the U.S. Constitution named `Constitution.pdf`. The test file, as it will be referred as, is 4488706 bytes (4.3 MiB) long. All tests were run on a 4-core, 8-thread, Intel(R) Core(TM) i7-7500U CPU @ 2.7GHz. All testing was done in file encryption because decryption is expected to have the same performance. The data presented here for each experimental group is the average result of 5 runs.  
+
+### Single Threaded Benchmark
+The following table is the result of the control test. Specifically, a single pass of single-threaded, variable-dimension encryption on the test file. The command ran:
+    
+    $ ./fontblanc Constitution.pdf -e -k keyfoobar  
+    
+| Measured Section | Time (ms) | Proportion of Runtime (%) |  
+| :-------------- | :-------: | :----------: |  
+| Generating matrices | 707.27 | 87 |  
+| Linear transformations | 60.63 | 7.5 |  
+| Rest of program | 45.02 | 5.5 |  
+| Elapsed time | 812.92 | 100 |  
+
+This data shows that the generation of permutation matrices takes up the largest proportion of runtime and is therefore the area that optimization efforts should be focused.
+
+### Multithreading the Generation of Permutation Matrices
+To increase the performance of generating the permutation matrices, I decided to employ multithreading. I designed 2 multithreading schemes, pthread-permut and pthread-permut-join. Both schemes schedule the generation of each matrix to a new thread, but pthread-permut does not synchronize the completion of the threads, while pthread-permut-join does.  
+
+For fixed-dimension encryption, I expect a speedup of no more than 50%, because only 2 matrices have to be generated and they can both be done in parallel. The graph below shows how both schemes perform. Displayed is the number of threads vs elapsed time for three passes of fixed-dimension encryption.
+
+
 
 ## Usage
 Run with `fontblanc <input filepath> <options ...>`.  
 
 ### Execution Flags
-The initial command to run the program will contain the file to operate on, global flags, and, optionally, the first instruction. If the first instruction isn't contained in the initial command's arguments, then the program will automatically start in interactive instruction input mode.
+The initial command to run the program will contain the file to operate on, global flags, and, optionally, the first instruction. If the first instruction isn't contained in the initial command's arguments, then the program will automatically start in interactive instruction input mode.  
 | Flag | Description |
 |:----:| :---------- |
 | h    | Print general help. |
 | e    | Run in encrypt mode. |
 | d    | Run in decrypt mode. |
-| t    | Set max number of threads to use. Expects argument. If not invoked, defaults to single-threaded. Recommended to set to the number of cores on the machine's CPU. |
+| t    | Set max number of threads to use. Expects argument. If not invoked, defaults to single-threaded. For efficient performance, set to the number of cores on the machine's CPU. For maximum performance on hyperthreaded CPU's, set to number of cores multiplied by number of threads per core. |
 | o    | Set output filename (uses input filepath). Expects argument. If not invoked, defaults to input filename. Adds prefix (decryption) or extension (encryption) to output filename to prevent overwriting the intput file. |
 | m    | Run in interactive instruction input mode (multilevel encryption/decryption). |
 | v    | Verbose output. Prints information for debugging. |
