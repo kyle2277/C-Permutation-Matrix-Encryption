@@ -73,7 +73,7 @@ To measure performance, I've defined 2 major sections of the program whose elaps
 
 I've chosen these two sections because combined they make up over 50% of the runtime of the program and they're both parallelizable.
 
-For all tests I used [this]() PDF of the U.S. Constitution named `Constitution.pdf`. The test file, as it will be referred as, is 4488706 bytes (4.3 MiB) long. All tests were run on a 4-core, 8-thread, Intel(R) Core(TM) i7-7500U CPU @ 2.7GHz. All testing was done in file encryption because decryption is expected to have the same performance. The data presented here for each experimental group is the average result of 5 runs.  
+For all tests I used [this]() PDF of the U.S. Constitution named `Constitution.pdf`. The test file, as it will be referred to, is 4488706 bytes (4.3 MiB) long. All tests were run on a 2-core, 4-thread, Intel(R) Core(TM) i7-7500U CPU @ 2.7GHz. All testing was done in file encryption because decryption is expected to have the same performance. The data presented here for each experimental group is the average result of 5 runs.  
 
 Program speedup calculations were performed using Ahmdahl's Law defined as follows:
 
