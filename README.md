@@ -18,6 +18,9 @@ The program has built-in multipass encryption, supporting up to 10 layers of enc
 > [Performance](#performance)  
 >> [Independent Variables and Testing Methodology](#independent-variables-and-testing-methodology)  
 >> [Single Threaded Benchmark](#single-threaded-benchmark)  
+>> [Multithreading the Generation of Permutation Matrices](#multithreading-the-generation-of-permutation-matrices)  
+>> [Multithreading Linear Transformations](#multithreading-linear-transformations)  
+>> [Combined Multithreading](#combined-multithreading)  
 >
 > [Usage](#usage)  
 >> [Execution Flags](#execution-flags)  
@@ -117,15 +120,21 @@ The graph below shows how both schemes perform. Displayed is the number of threa
 
 <img src="https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Graphics/GenPmat_Fixed.png" Alt="Elapsed Time vs Number Threads for Fixed-Dimension Encryption" width="600"></img>  
 
-Evidently, the permut-pthread scheme is marginally better than permut-pthread-join. As expected, the performance gain appears at 2 threads and doesn't improve when using more. The average program execution time with 2 or more threads was approximately 445 ms. The control execution time average was 538 ms. This is a speedup of 1.21.  
+Evidently, the permut-pthread scheme is marginally better than permut-pthread-join. As expected, the performance gain appears at 2 threads and doesn't improve when using more. The average program execution time with 2 or more threads was approximately 445 ms. The control execution time was 538 ms. This is a speedup of 1.21.  
 
-For variable-dimension encryption, since matrix generation makes up 87% of the runtime, by [Ahmdahl's Law](#independent-variables-and-testing-methodology) I'm expexting an approximate speedup of 2.8. Since there are 10 matrices to generate for variable-dimension encryption, the maximum speedup would be achieved by running 10 threads in parallel however my CPU limits the factor of speedup to 4 since its dual core hyperthreaded at 2 threads per core.
+For variable-dimension encryption, since matrix generation makes up 87% of the runtime, by [Ahmdahl's Law](#independent-variables-and-testing-methodology) I'm expecting an approximate speedup of 2.8. Since there are 10 matrices to generate for variable-dimension encryption, the maximum speedup would be achieved by running 10 threads in parallel however my CPU limits the factor of speedup to 4 since its dual core hyperthreaded at 2 threads per core.
 
 The graph below shows how both schemes perform. Displayed is the number of threads vs elapsed time for three passes of variable-dimension encryption.  
 
-<img src="https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Graphics/GenPmat_Fixed.png" Alt="Elapsed Time vs Number Threads for Fixed-Dimension Encryption" width="600"></img>  
+<img src="https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Graphics/GenPmat_Variable.png" Alt="Elapsed Time vs Number Threads for Variable-Dimension Encryption" width="600"></img>  
 
+Again the permut-pthread scheme performs better than permut-pthread-join. As expected, the maximum performance gain is achieved at 4 threads and doesn't improve when using more. The average program execution time with 4 or more threads was approximately 107 ms. The control execution time was 240 ms. This is a speedup of 2.24.  
 
+In conclusion, the permut-pthread scheme is the best multithreading scheme for optimizing the generating permutation matrices.
+
+### Multithreading Linear Transformations
+
+### Combined Multithreading
 
 ## Usage
 Run with `fontblanc <input filepath> <options ...>`.  
