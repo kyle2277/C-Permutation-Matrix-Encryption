@@ -130,7 +130,7 @@ The graph below shows how both schemes perform. Displayed is the number of threa
 
 Again the permut-pthread scheme performs better than permut-pthread-join. As expected, the maximum performance gain is achieved at 4 threads and doesn't improve when using more. The average program execution time with 4 or more threads was approximately 107 ms. The control execution time was 240 ms. This is a speedup of 2.24.  
 
-In conclusion, the permut-pthread scheme is the best multithreading scheme for optimizing the generating permutation matrices.
+In conclusion, the permut-pthread scheme is the best multithreading scheme for optimizing the generation permutation matrices.
 
 ### Multithreading Linear Transformations
 
