@@ -128,7 +128,7 @@ The graph below shows how both schemes perform compared to a single-threaded con
 
 <img src="https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Graphics/GenPmat_Variable.png" Alt="Elapsed Time vs Number Threads for Variable-Dimension Encryption" width="600"></img>  
 
-Again the permut-pthread scheme performs better than permut-pthread-join. As expected, the maximum performance gain is achieved at 4 threads and doesn't improve when using more. The average permut-pthread execution time with 4 or more threads was approximately 1086 ms. The control execution time was 2400 ms. This is a speedup of 2.21.  
+Again the permut-pthread scheme performs better than permut-pthread-join. As expected, the maximum performance gain is achieved at 4 threads and doesn't improve when using more. The average permut-pthread execution time with 4 or more threads was approximately 1086 ms. The control execution time was 2400 ms. This is a speedup of 2.21—around 75% of the ideal speedup.  
 
 In conclusion, the permut-pthread scheme is the best multithreading scheme for optimizing the generation permutation matrices.
 
@@ -162,7 +162,7 @@ For fixed-dimension, taking into account that maxtrix generation (35% runtime) i
 
 The graph below shows how the two schemes perform independently and combined compared to a single-threaded control run with the same input. Displayed is the elapsed time vs number of threads for 3 passes of fixed-dimension encryption.  
 
-<img src="https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Graphics/LinTrans_Variable.png" Alt="Elapsed Time vs Number Threads for Variable-Dimension Encryption" width="600"></img>  
+<img src="https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Graphics/Combined_Fixed.png" Alt="Elapsed Time vs Number Threads for Variable-Dimension Encryption" width="600"></img>  
 
 The average permut-pthread-chunk execution time with 4 or more threads was 269 ms. The control execution time was 539 ms. This is a speedup of 2.  
 
@@ -170,8 +170,11 @@ For variable-dimension, taking into account that matrix generation and linear tr
 
 The graph below shows how the two schemes perform independently and combined compared to a single-threaded control run with the same input. Displayed is the elapsed time vs number of threads for 3 passes of variable-dimension encryption.  
 
-<img src="https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Graphics/LinTrans_Variable.png" Alt="Elapsed Time vs Number Threads for Variable-Dimension Encryption" width="600"></img>  
+<img src="https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Graphics/Combined_Variable.png" Alt="Elapsed Time vs Number Threads for Variable-Dimension Encryption" width="600"></img>  
 
+The average permut-pthread-chunk execution time with 4 or more threads was 954 ms. The control execution time was 2401 ms. This is a measured speedup of 2.5—around 75% of the ideal speedup, similar to the variable-encryption tests for the generation of permutation matrices.  
+
+The current version of Font_Blanc_C uses the permut-pthread-chunk multithreading scheme. From these tests it can be inferred that for any given number of threads, the speedup of the program will be approximately 75% of the ideal speedup calculated with Amdahl's Law.
 
 ## Usage
 Run with `fontblanc <input filepath> <options ...>`.  
