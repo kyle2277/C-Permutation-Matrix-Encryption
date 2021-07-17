@@ -15,7 +15,7 @@ The program has built-in multipass encryption, supporting up to 10 layers of enc
 >> [Using Linear Transformations to Encrypt Data](#using-linear-transformations-to-encrypt-data)  
 >> [Encryption in Chunks](#encryption-in-chunks)  
 >
-> [Performance](#performance)  
+> [Performance Optimization](#performance-optimization)  
 >> [Independent Variables and Testing Methodology](#independent-variables-and-testing-methodology)  
 >> [Single Threaded Benchmark](#single-threaded-benchmark)  
 >> [Multithreading the Generation of Permutation Matrices](#multithreading-the-generation-of-permutation-matrices)  
@@ -65,7 +65,7 @@ Creating a permutation matrix the size of the length of an input file would be i
 
 Encrypting in chunks is less than ideal because it means that reordered bytes stay relatively close to their original position, but it's a necessary compromise for efficiency. The issue can be mitigated to some extent by performing multiple passes of encryption using a mix of differing fixed-dimension passes and variable-dimension passes.  
 
-## Performance  
+## Performance Optimization  
 ### Independent Variables and Testing Methodology
 To measure performance, I've defined 2 major sections of the program whose elapsed execution times will be anlalyzed:  
 1) the generation of permutation matrices
