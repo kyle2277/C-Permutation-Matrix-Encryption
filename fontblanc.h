@@ -124,7 +124,10 @@ char *gen_log_base_str(cipher *, double);
 instruction *create_instruction(int, char *, boolean);
 void set_instructions(cipher *, instruction **, int);
 void read_instructions(cipher *, int);
+void print_instruction_at(instruction **, int);
 void print_instructions(instruction **, int);
+void print_last_instruction(instruction **, int);
+int remove_last_instruction(instruction **, int);
 void clean_instructions(instruction **, int);
 void free_instructions(instruction **, int);
 #endif

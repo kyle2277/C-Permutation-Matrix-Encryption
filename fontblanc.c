@@ -486,7 +486,7 @@ void *permut_thread_func(void *args) {
   dim_finished ++;
   pthread_cond_broadcast(condvar);
   if(verbose) {
-    printf("Finished mat: %d\n", pt->dimension);
+    printf("Finished matrix: %d\n", pt->dimension);
   }
   free(pt);
   if(pt->post) {
@@ -591,7 +591,7 @@ struct PMAT *gen_permut_mat(permut_thread *pt) {
   int dimension = pt->dimension;
   boolean inverse = pt->inverse;
   if(verbose) {
-    printf("%s%d\n", "Gen mat: ", dimension);
+    printf("%s%d\n", "Generating matrix: ", dimension);
   }
   char *linked = gen_linked_vals(c, 2*dimension);
   //create linked lists used to build matrices
@@ -947,27 +947,66 @@ void read_instructions(cipher *c, int coeff) {
 }
 
 /*
- * Prints specified number of instructions to stdout.
+ * Prints a single instruction at the given index. Does not notify if instruction at index exists.
+ */
+void print_instruction_at(instruction **instructions, int index) {
+  // Convert from element number to index number
+  if(index < 0) {
+    return;
+  }
+  instruction *ins = instructions[index];
+  if(!ins) {
+    return;
+  }
+  printf("\n| Instruction #%d |\n", index + 1);
+  printf("Key: %s\n", ins->encrypt_key);
+  printf("Matrix dimension: ");
+  if(ins->dimension > 0) {
+    printf("%d\n", ins->dimension);
+  } else {
+    printf("variable\n");
+  }
+  printf("Data integrity checks: %s\n", ins->integrity_check ? "on" : "off");
+  printf("\n");
+}
+
+/*
+ * Prints specified number of instructions to stdout starting from first instruction.
  */
 void print_instructions(instruction **instructions, int num_instructions) {
   if(num_instructions <= 0) {
     printf("\nNo instructions added\n");
+    return;
   }
   for(int i = 0; i < num_instructions; i++) {
-    instruction *ins = instructions[i];
-    if(!ins) {
-      return;
-    }
-    printf("\n| Instruction #%d |\n", i + 1);
-    printf("Key: %s\n", ins->encrypt_key);
-    printf("Matrix dimension: ");
-    if(ins->dimension > 0) {
-      printf("%d\n", ins->dimension);
-    } else {
-      printf("variable\n");
-    }
-    printf("Data integrity checks: %s\n", ins->integrity_check ? "on" : "off");
+    print_instruction_at(instructions, i);
   }
+}
+
+/*
+ * Wrapper for print_instruction_at that prints the last instruction.
+ */
+void print_last_instruction(instruction **instructions, int num_instructions) {
+  print_instruction_at(instructions, num_instructions - 1);
+}
+
+/*
+ * Removes the last instruction. Returns new number of instructions.
+ */
+int remove_last_instruction(instruction **instructions, int num_instructions) {
+  if(num_instructions <= 0) {
+    // Cannot remove last instruction
+    printf("No previous instruction to remove\n");
+    return num_instructions;
+  }
+  // Remove last instruction
+  instruction *remove = instructions[num_instructions - 1];
+  memset(remove->encrypt_key, '\0', strlen(remove->encrypt_key));
+  free(remove);
+  printf("Removed instruction #%d\n", num_instructions);
+  printf("\n");
+  return num_instructions - 1;
+
 }
 
 /*

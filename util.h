@@ -42,7 +42,8 @@ typedef struct command {
   boolean integrity_check;
   // Specifies whether to remove last instruction
   boolean remove_last;
-  boolean help;
+  boolean print_all;
+  int print_single;
 } command;
 
 // Main function helpers ---------------------------------------------------------------------------
