@@ -20,7 +20,7 @@ The program has built-in multipass encryption, supporting up to 10 layers of enc
 >> [Encryption in Chunks](#encryption-in-chunks)  
 >
 > [Performance Optimization](#performance-optimization)  
->> [Independent Variables and Testing Methodology](#independent-variables-and-testing-methodology)  
+>> [Testing Methodology](#independent-variables-and-testing-methodology)  
 >> [Single Threaded Benchmark](#single-threaded-benchmark)  
 >> [Multithreading the Generation of Permutation Matrices](#multithreading-the-generation-of-permutation-matrices)  
 >> [Multithreading Linear Transformations](#multithreading-linear-transformations)  
@@ -75,14 +75,20 @@ Encrypting in chunks is less ideal because it means that reordered bytes stay re
 ## Performance Optimization  
 This section of the documentation is a detailed report of how I optimized the program via multithreading.
 
-### Independent Variables and Testing Methodology
+### Testing Methodology
 To measure performance, I've defined 2 major sections of the program whose elapsed execution times will be anlalyzed:  
 1) the generation of permutation matrices
 2) the execution of linear transformations (matrix multiplication)   
 
-I've chosen these two sections because combined they make up over 50% of the runtime of the program and they're both parallelizable.
+I've chosen these two sections because combined they make up over 50% of the runtime of the program and they're both parallelizable. 
+
+All data was collected using [this](https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Misc/run_threads.sh) Bash script. The script repeatedly runs the program with the same input using different nubmers of threads. It outputs the elapsed time of each run to a file in CSV format. This data was averaged and graphed to get the results reported here.  
 
 For all tests I used [this]() PDF of the U.S. Constitution named `Constitution.pdf`. The test file, as it will be referred to, is 4488706 bytes (4.3 MiB) long. All tests were run on a 2-core, 4-thread, Intel(R) Core(TM) i7-7500U CPU @ 2.7GHz. All testing was done in file encryption because decryption is expected to have the same performance. The data presented for each experimental group is the average result of 5 runs.  
+
+I performed tests on both variable-dimension and fixed-dimension runs of the program.  
+Variable-dimension tests used [this](https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Misc/test_variable) file as input for the instruction loop.  
+Fixed-dimension tests used [this](https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Misc/test_fixed) file as input for the instruction loop.
 
 Program speedup estimations were calculated using Amdahl's Law, defined as follows:
 
