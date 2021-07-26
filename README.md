@@ -84,7 +84,7 @@ I've chosen these two sections because combined they make up over 50% of the run
 
 All data was collected using [this](https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Misc/run_threads.sh) Bash script. The script repeatedly runs the program with the same input using different nubmers of threads. It outputs the elapsed time of each run to a file in CSV format. This data was averaged and graphed to get the results reported here.  
 
-For all tests I used [this]() PDF of the U.S. Constitution named `Constitution.pdf`. The test file, as it will be referred to, is 4488706 bytes (4.3 MiB) long. All tests were run on a 2-core, 4-thread, Intel(R) Core(TM) i7-7500U CPU @ 2.7GHz. All testing was done in file encryption because decryption is expected to have the same performance. The data presented for each experimental group is the average result of 5 runs.  
+For all tests I used [this]() PDF of the U.S. Constitution named `Constitution.pdf` as the input file. The test file, as it will be referred to, is 4488706 bytes (4.3 MiB) long. All tests were run on a 2-core, 4-thread, Intel(R) Core(TM) i7-7500U CPU @ 2.7GHz. All testing was done in file encryption because decryption is expected to have the same performance. The data presented for each experimental group is the average result of 5 runs.  
 
 I performed tests on both variable-dimension and fixed-dimension runs of the program.  
 Variable-dimension tests used [this](https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Misc/test_variable) file as input for the instruction loop.  
