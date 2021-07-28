@@ -41,7 +41,7 @@ pthread_mutex_t *permut_lock;
 // For variable dimension: bitmap of which dimensions need to be generated
 int *dim_array;
 // Size of array storing matrices to be generated
-int dim_array_size;
+_Atomic int dim_array_size;
 // Number of matrices to be generated
 int num_array;
 // Index counter keeps track of which matrices have been assigned to threads
@@ -115,7 +115,6 @@ cipher *create_cipher(char *file_name, char *file_path, long file_len, char *out
   if(!c->permut_map) {
     fatal(LOG_OUTPUT, "Dynamic memory allocation error in create_cipher(), fontblanc.c"); exit(-1);
   }
-  init_ll_trash(MAX_DIMENSION);
   thread_sema = (sem_t *)malloc(sizeof(sem_t));
   sem_init(thread_sema, 0, num_threads);
   cipher_lock = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
@@ -488,12 +487,12 @@ void *permut_thread_func(void *args) {
   if(verbose_lvl_2) {
     printf("Finished matrix: %d\n", pt->dimension);
   }
-  free(pt);
   if(pt->post) {
     // Make new thread available
     sem_post(thread_sema);
     pthread_detach(pthread_self());
   }
+  free(pt);
   return NULL;
 }
 
@@ -546,7 +545,7 @@ void gen_variable_permut_mats(cipher *c, int coeff) {
 void gen_fixed_permut_mats(cipher *c, int coeff, int dimension) {
   // Fixed dimension stored in 1st index, last dimension stored in 2nd index, nothing in 0th
   int last_dim = (int)((c->file_len) % dimension);
-  int dim_array_size = last_dim > 0 ? 3 : 2;
+  dim_array_size = last_dim > 0 ? 3 : 2;
   dim_array = (int *)calloc((size_t)dim_array_size, sizeof(int));
   if(!dim_array) {
     fatal(LOG_OUTPUT, "Dynamic memory allocation error in gen_fixed_permut_mats(), fontblanc.c.");
@@ -585,7 +584,7 @@ void gen_fixed_permut_mats(cipher *c, int coeff, int dimension) {
  * Takes the dimension of the matrix to create (dimension is negative if inverse).
  * Generates unique n-dimensional permutation matrices from the encryption key.
  */
-struct PMAT *gen_permut_mat(permut_thread *pt) {
+void gen_permut_mat(permut_thread *pt) {
   clock_t start = clock();
   cipher *c = pt->c;
   int dimension = pt->dimension;
@@ -664,7 +663,7 @@ struct PMAT *gen_permut_mat(permut_thread *pt) {
   clock_t diff_write = clock() - start_write;
   time_total_write += diff_write;
   //printf("created mat, %d\n", dimension);
-  return resultant_m;
+  //return resultant_m;
 }
 
 /*

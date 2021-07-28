@@ -106,7 +106,7 @@ int pull_node(node **, int, permut_thread *);
 void *permut_thread_func(void *);
 void gen_variable_permut_mats(cipher *, int);
 void gen_fixed_permut_mats(cipher *, int, int);
-struct PMAT *gen_permut_mat(permut_thread *);
+void gen_permut_mat(permut_thread *);
 double *transform_vec(int, unsigned char bytes[], struct PMAT *, boolean);
 struct PMAT *orthogonal_transpose(struct PMAT *);
 int dot_product(double a[], double b[], int);

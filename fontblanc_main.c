@@ -85,6 +85,17 @@ void instruction_help() {
   printf("\n");
 }
 
+
+/*
+ * Clears and deallocates memory in given initial_state struct.
+ */
+void free_init(initial_state *init) {
+  memset(init->encrypt_key, '\0', strlen(init->encrypt_key));
+  free(init->encrypt_key);
+  free(init->output_name);
+  free(init);
+}
+
 /*
  * Reads initial arguments and set program start state.
  * Returns 0 if successful, otherwise returns erroneous option.
@@ -152,6 +163,7 @@ int read_initial_state(initial_state *init, int argc, char **argv) {
       case 'h':
         // Print main help
         main_help();
+        free_init(init);
         exit(EXIT_SUCCESS);
       case 'v':
         verbose_lvl_1 = true;
@@ -320,15 +332,12 @@ int instruction_input_loop(instruction **instructions, int num_instructions) {
  * Facilitates generating instructions and running cipher.
  */
 int main(int argc, char **argv) {
-  if(!argv[1]) {
+  if(!argv[1] || strcmp(argv[1], "-h") == 0) {
     main_help();
     exit(1);
   }
   // Parse input file path
   char *absolute_path = argv[1];
-  char **processed = parse_f_path(absolute_path);
-  char *file_name = processed[0];
-  char *just_path = processed[1];
   long file_len = get_f_len(absolute_path);
   // Check if input file exists
   if(file_len < 0) {
@@ -357,6 +366,9 @@ int main(int argc, char **argv) {
   }
   //app welcome
   splash();
+  char **processed = parse_f_path(absolute_path);
+  char *file_name = processed[0];
+  char *just_path = processed[1];
   printf("File name: %s\n", file_name);
   printf("File size: %ld bytes\n", file_len);
   printf("Mode: %s\n", init->encrypt ? "encrypt" : "decrypt");
@@ -404,12 +416,10 @@ int main(int argc, char **argv) {
   difference = (long double) (BILLION * (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec)) / (double) BILLION;
   clean_instructions(instructions, num_instructions);
   close_cipher(ciph);
-  free(init->encrypt_key);
-  free(init->output_name);
+  free_init(init);
   free(processed[0]);
   free(processed[1]);
   free(processed);
-  free(init);
   free_instructions(instructions, num_instructions);
   printf("Elapsed time (s): %Lf\n", difference);
 #ifdef EXPORT_TIME
