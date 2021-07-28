@@ -18,7 +18,7 @@
 #include <termios.h>
 
 #define BILLION 1000000000L
-#define INIT_OPTIONS "edD:k:o:xmst:hv"
+#define INIT_OPTIONS "edD:k:o:xmst:hvV"
 #define INSTRUCTION_OPTIONS ":k:D:shrp:P"
 
 // Writes elapsed time to a file called fbc_elapsed_time.txt when EXPORT_TIME defined
@@ -30,7 +30,7 @@
  * Prints ASCII art splash.
  */
 void splash() {
-  if(!verbose) {
+  if(!verbose_lvl_1 && !verbose_lvl_2) {
     return;
   }
   FILE *splash;
@@ -46,18 +46,41 @@ void splash() {
   }
 }
 
-void usage_help() {
-  printf("Print usage help here.\n");
-}
+/*
+ * Prints complete program help.
+ */
 void main_help() {
-  printf("Print help here\n");
+  printf("CPME = C Permutation Matrix Encryption\n");
+  printf("By Kyle Won\n\n");
+  printf("Usage: fontblanc [FILE] -e [OPTIONS...]\t\tencrypt mode\n");
+  printf("   or: fontblanc [FILE] -d [OPTIONS...]\t\tdecrypt mode\n");
+  printf("\n");
+  printf("Arguments:\n");
+  printf("   -k\t\tSet encrypt key for first instruction. Expects argument\n");
+  printf("   -D\t\tSet matrix dimension for first instruction. If not invoked or 0, defaults to variable-dimension\n");
+  printf("   -s\t\tSkip data integrity checks for first instruction. Not recommended\n");
+  printf("   -o\t\tSet output filename. If not invoked, defaults to input filename\n");
+  printf("   -m\t\tStart program in instruction input loop (multilevel encryption)\n");
+  printf("   -t\t\tSet max number of threads to use. If not invoked, defaults to single-threaded\n");
+  printf("   -v\t\tVerbose output level I. Prints instructions as they are added\n");
+  printf("   -V\t\tVerbose output level II. Prints debugging information\n");
+  printf("   -h\t\tDisplay this help and exit\n\n");
+  printf("Full documentation at <>\n");
 }
+
+/*
+ * Prints instruction input loop help.
+ */
 void instruction_help() {
   printf("Define instructions using the following flags:\n");
-  printf("-k\t\tencryption key (omit flag to enter with terminal echoing disabled)\n");
-  printf("-D\t\tpermutation matrix dimension (defaults to variable-dimension if not invoked or set to 0)\n");
-  printf("-s\t\tskip data integrity checks. Not recommended\n");
-  printf("Enter\texecute instructions\n");
+  printf("   -k\t\tencryption key (omit flag to enter with terminal echoing disabled)\n");
+  printf("   -D\t\tpermutation matrix dimension (defaults to variable-dimension if not invoked or set to 0)\n");
+  printf("   -s\t\tskip data integrity checks. Not recommended\n");
+  printf("   -r\t\tdelete last instruction\n");
+  printf("   -p\t\tprint single instruction at specified position. Expects integer argument\n");
+  printf("   -P\t\tprint all instuctions\n");
+  printf("   -h\t\tprint instruction input loop help\n");
+  printf("   Enter\texecute instructions\n");
   printf("\nExample: \"-k fookeybar -D 0\"\n");
   printf("\n");
 }
@@ -129,9 +152,12 @@ int read_initial_state(initial_state *init, int argc, char **argv) {
       case 'h':
         // Print main help
         main_help();
-        break;
+        exit(EXIT_SUCCESS);
       case 'v':
-        verbose = true;
+        verbose_lvl_1 = true;
+        break;
+      case 'V':
+        verbose_lvl_2 = true;
         break;
       case ':':
         sprintf(error, "Missing argument for -%c\n", optopt);
@@ -270,7 +296,9 @@ int instruction_input_loop(instruction **instructions, int num_instructions) {
           remove_newline(com->encrypt_key);
           instructions[num_instructions] = create_instruction(com->dimension, com->encrypt_key, com->integrity_check);
           num_instructions += 1;
-          print_last_instruction(instructions, num_instructions);
+          if(verbose_lvl_1) {
+            print_last_instruction(instructions, num_instructions);
+          }
         }
       } else if(num_instructions >= 10) {
         // Cannot add new instruction
@@ -293,7 +321,7 @@ int instruction_input_loop(instruction **instructions, int num_instructions) {
  */
 int main(int argc, char **argv) {
   if(!argv[1]) {
-    usage_help();
+    main_help();
     exit(1);
   }
   // Parse input file path
@@ -320,9 +348,8 @@ int main(int argc, char **argv) {
   // Check if mode specified
   if(init->encrypt < 0) {
     free(init);
-    usage_help();
+    printf("Invalid usage - must specify encrypt (-e) or decrypt (-d) mode.\n");
     exit(1);
-    //fatal(LOG_OUTPUT, "Invalid usage - must specify encrypt (-e) or decrypt (-d) mode.");
   }
   // Set number of threads to 1 if not set
   if(num_threads <= 0) {
@@ -334,6 +361,7 @@ int main(int argc, char **argv) {
   printf("File size: %ld bytes\n", file_len);
   printf("Mode: %s\n", init->encrypt ? "encrypt" : "decrypt");
   printf("Threads: %d\n", num_threads);
+  printf("\n");
   cipher *ciph = create_cipher(file_name, just_path, file_len, init->output_name);
   instruction **instructions = (instruction **)malloc(sizeof(instruction *) * MAX_INSTRUCTIONS);
   int num_instructions = 0;
@@ -351,7 +379,9 @@ int main(int argc, char **argv) {
   } else {
     init->multilevel = true;
   }
-  print_instructions(instructions, num_instructions);
+  if(verbose_lvl_1) {
+    print_instructions(instructions, num_instructions);
+  }
   // If multilevel encryption flag set, enter instruction input loop
   if(init->multilevel) {
     num_instructions = instruction_input_loop(instructions, num_instructions);

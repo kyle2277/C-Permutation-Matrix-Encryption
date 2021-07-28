@@ -165,7 +165,7 @@ int run(cipher *c, boolean encrypt) {
     c->file_bytes = file_bytes;
     read_instructions(c, coeff);
     write_output(c, coeff);
-    if(verbose) {
+    if(verbose_lvl_2) {
       printf("Time generating permutation matrices (ms): %.2lf\n", (double)time_total_gen*1000/CLOCKS_PER_SEC);
       printf("Time writing matrices to file (ms): %.2lf\n", (double)time_total_write*1000/CLOCKS_PER_SEC);
       printf("Time performing linear transformation (ms): %.2lf\n", (double)time_transformation*1000/CLOCKS_PER_SEC);
@@ -237,7 +237,7 @@ void variable_thread_scheduler(cipher *c, int coeff) {
   long approx = c->file_len / MAX_DIMENSION;
   char *linked = gen_linked_vals(c, (unsigned int)approx);
   int map_len = (int)strlen(linked);
-  if(verbose) {
+  if(verbose_lvl_2) {
     printf("Performing linear transformations...\n");
   }
   if(calculations_per_chunk > 0) {
@@ -340,7 +340,7 @@ void fixed_thread_scheduler(cipher *c, int coeff, int dimension) {
   int chunk_index;
   finished_chunks = 0;
   scheduled_chunks = 0;
-  if(verbose) {
+  if(verbose_lvl_2) {
     printf("Performing linear transformations...\n");
   }
   if(c->file_len > dimension) {
@@ -485,7 +485,7 @@ void *permut_thread_func(void *args) {
   free_ll_trash(pt->trash);
   dim_finished ++;
   pthread_cond_broadcast(condvar);
-  if(verbose) {
+  if(verbose_lvl_2) {
     printf("Finished matrix: %d\n", pt->dimension);
   }
   free(pt);
@@ -515,7 +515,7 @@ void gen_variable_permut_mats(cipher *c, int coeff) {
   for(int i = 1; i < 10; i++) {
     dim_array[i] = i > 1 ? MAX_DIMENSION - (MAX_DIMENSION / i) : MAX_DIMENSION;
   }
-  if(verbose) {
+  if(verbose_lvl_2) {
     printf("Generating matrices...\n");
   }
   // Generate permutation matrices in parallel
@@ -556,7 +556,7 @@ void gen_fixed_permut_mats(cipher *c, int coeff, int dimension) {
   dim_array[2] = last_dim;
   dim_finished = 1;
   dim_index = 1;
-  if(verbose) {
+  if(verbose_lvl_2) {
     printf("Generating matrices...\n");
   }
   // Generate permutation matrices in parallel
@@ -590,7 +590,7 @@ struct PMAT *gen_permut_mat(permut_thread *pt) {
   cipher *c = pt->c;
   int dimension = pt->dimension;
   boolean inverse = pt->inverse;
-  if(verbose) {
+  if(verbose_lvl_2) {
     printf("%s%d\n", "Generating matrix: ", dimension);
   }
   char *linked = gen_linked_vals(c, 2*dimension);
@@ -771,7 +771,7 @@ int key_sum(char *s) {
     int add = (*s+*(s+1))<<i;
     sum = add-sum;
   }
-  if(verbose) {
+  if(verbose_lvl_2) {
     printf("Key sum: %d\n", sum);
   }
   // DEBUG OUTPUT
@@ -958,7 +958,7 @@ void print_instruction_at(instruction **instructions, int index) {
   if(!ins) {
     return;
   }
-  printf("\n| Instruction #%d |\n", index + 1);
+  printf("| Instruction #%d |\n", index + 1);
   printf("Key: %s\n", ins->encrypt_key);
   printf("Matrix dimension: ");
   if(ins->dimension > 0) {
@@ -975,7 +975,7 @@ void print_instruction_at(instruction **instructions, int index) {
  */
 void print_instructions(instruction **instructions, int num_instructions) {
   if(num_instructions <= 0) {
-    printf("\nNo instructions added\n");
+    printf("No instructions added\n");
     return;
   }
   for(int i = 0; i < num_instructions; i++) {

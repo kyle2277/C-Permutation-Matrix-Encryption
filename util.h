@@ -12,8 +12,10 @@
 typedef enum { false, true } boolean;
 // Max number of threads to use
 int num_threads;
+// Print instructions as they are input
+boolean verbose_lvl_1;
 // Print information for debugging
-boolean verbose;
+boolean verbose_lvl_2;
 
 /*
  * Contains global information from initial arguments. Can include first instruction.
