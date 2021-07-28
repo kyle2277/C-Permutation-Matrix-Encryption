@@ -25,7 +25,7 @@ The program has built-in multipass encryption, supporting up to 10 layers of enc
 >> [Multithreading the Generation of Permutation Matrices](#multithreading-the-generation-of-permutation-matrices)  
 >> [Multithreading Linear Transformations](#multithreading-linear-transformations)  
 >> [Combined Multithreading](#combined-multithreading)  
->> [Results of Experiments](#results-of-experiments)  
+>> [Result of Experiments](#result-of-experiments)  
 >
 > [Usage](#usage)  
 >> [Execution Flags](#execution-flags)  
@@ -208,21 +208,23 @@ Plot 6 shows how the two schemes perform independently and combined compared to 
 
 The average permut-pthread-chunk execution time with 4 or more threads was 954 ms. The control execution time was 2401 ms. This is a measured speedup of 2.5—around 75% of the ideal speedup, similar to the variable-encryption tests for multithreading only the generation of permutation matrices.  
 
-### Results of Experiments
+### Result of Experiments
 | Program Section | Multithreading Scheme (dimension) | Calculated Max Speedup | Measured Speedup |
 | --------------: | :-------------------- | :--------------------: | :--------------: |
 | **Matrix Generation** | permut-pthread (fixed) | 1.2 | 1.3 |
 || permut-pthread (variable) | 2.8 | 2.21 |
 | **Linear Transformations** | pthread-chunk (fixed) | 1.4 | 1.36 |
 || pthread-chunk (variable) | 1.05 | 1.05 |
-| **Best Combined** | permut-pthread-chunk (fixed) | 1.9 | 2 |
+| **Combined** | permut-pthread-chunk (fixed) | 1.9 | 2 |
 || permut-pthread-chunk (variable) | 3.4 | 2.5 |  
 
 **Table 3:** *Comparison of calulated speedups with measured speedups for the multithreading scheme that yielded the best results in each section.*  
+#### Analysis  
+As shown by Table 3, most of the predicted speedups were fairly consistent with the measured results. The largest outlier was the variable-dimension permut-pthread test, where the measured speedup was approximately 25% below the calculated upper bound. This 25% discrepancy was also present in the variable-dimension permut-pthread-chunk test which suggests that the cause lies within the program, not the data collection method. The issue may be attributable to various things.  
 
-The current version of Font_Blanc_C implements the permut-pthread-chunk multithreading scheme. From these experiments, it can be concluded that multithreading both matrix generation and linear transformations provides a speedup of at least 2 to the program.  
-
-The fact that I measured a final speedup that was only 75% of the ideal speedup may be attributable to my hyperthreaded CPU that doesn't truly have 4 cores. The factor of parallelizability of 4 that I used in my calculations may have been an overestimation of the actual capability of the CPU in some situations. It may also suggest that the program's current algorithm for generating permutation matrices is inefficient, since the lacking speedup only occurred in tests where the generation of matrices made up the largest proportion of the program's runtime.  
+For example, it could've been caused by an incorrect measurement of the amount of the program that is parallelizable in the [single threaded benchmark](#single-threaded-benchmark) test. This would've resulted in an incorrect upper bound calculated by Amdahl's Law. It could've also been caused by the fact that the hyperthreaded CPU used for testing doesn't truly have 4 cores. The factor of parallelizability of 4 that I used in my calculations may have been an overestimation of the actual capability of the CPU in some situations. A third explanation may be that the program's current algorithm for generating permutation matrices is inefficient, since the lacking speedup only occurred in tests where the generation of matrices made up the largest proportion of the program's runtime.  
+#### Conclusion  
+The least that can be concluded from these experiments is that multithreading both matrix generation and linear transformations provides a speedup of at least 2 to the program. The current version of Font_Blanc_C implements the permut-pthread-chunk multithreading scheme which provide a speedup of approximately 2 and 2.5 for fixed-dimension and variable-dimension encryption, respectively.  
 
 ## Usage
 Run with `fontblanc <input filepath> <options ...>`.  
