@@ -239,7 +239,8 @@ The initial command to run the program will contain the file to operate on, glob
 | t    | Set max number of threads to use. Expects argument. If not invoked, defaults to single-threaded. For efficient performance, set to the number of cores on the machine's CPU. For maximum performance on hyperthreaded CPU's, set to number of cores multiplied by number of threads per core. |
 | o    | Set output filename (uses input filepath). Expects argument. If not invoked, defaults to input filename. Adds prefix (decryption) or extension (encryption) to output filename to prevent overwriting the intput file. |
 | m    | Run in interactive instruction input mode (multilevel encryption/decryption). |
-| v    | Verbose output. Prints information for debugging. |
+| v    | Verbose output level I. Prints instructions as they are added. |
+| V    | Verbose output level II. Prints debugging information. |
 | k    | Set encrypt key for first instruction. Expects argument. |
 | D    | Set permutation matrix dimension for first instruction. Expects argument. Argument of 0 denotes variable-dimension encryption. If not invoked, defaults to variable-dimension encryption. |
 | s    | Skip data integrity checks for fist instruction. Not recommended. |
