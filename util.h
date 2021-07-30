@@ -10,6 +10,12 @@
 #define LOG_OUTPUT "fontblanc_log.txt"
 #define BUFFER 256
 typedef enum { false, true } boolean;
+// Max number of threads to use
+int num_threads;
+// Print instructions as they are input
+boolean verbose_lvl_1;
+// Print information for debugging
+boolean verbose_lvl_2;
 
 /*
  * Contains global information from initial arguments. Can include first instruction.
@@ -24,7 +30,7 @@ typedef struct initial_state {
   // Specifies whether to enter instruction input loop for multiple passes
   boolean multilevel;
   char *encrypt_key;
-  char *output_path;
+  char *output_name;
 } initial_state;
 
 /*
@@ -38,7 +44,8 @@ typedef struct command {
   boolean integrity_check;
   // Specifies whether to remove last instruction
   boolean remove_last;
-  boolean help;
+  boolean print_all;
+  int print_single;
 } command;
 
 // Main function helpers ---------------------------------------------------------------------------
@@ -53,15 +60,11 @@ typedef struct node {
   int number;
 } node;
 
-node **trash;
-int trash_indx;
-
-void init_ll_trash(int);
+node **init_ll_trash(int);
 node *build_ll(node *, int);
-int pull_node(node **, int);
 void remove_node(node **, node *);
-void empty_trash(void);
-void free_ll_trash();
+void empty_trash(node **, int);
+void free_ll_trash(node **);
 
 // FontBlanc_C helpers -----------------------------------------------------------------------------
 char *get_extension(char *);
