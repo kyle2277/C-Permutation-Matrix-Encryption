@@ -19,6 +19,13 @@ The program has built-in multipass encryption, supporting up to 10 layers of enc
 >> [Using Linear Transformations to Encrypt Data](#using-linear-transformations-to-encrypt-data)  
 >> [Encryption in Chunks](#encryption-in-chunks)  
 >
+> [Usage](#usage)  
+>> [Options](#options)  
+>> [Interacitve Instruction Input Mode](#interactive-instruction-input-mode)  
+>> [Example: Simple](#example-simple)  
+>> [Example: Intermediate](#example-intermediate)  
+>> [Example: Multipass Encryption](#example-multipass-encryption)  
+>
 > [Performance Optimization](#performance-optimization)  
 >> [Testing Methodology](#testing-methodology)  
 >> [Single Threaded Benchmark](#single-threaded-benchmark)  
@@ -26,13 +33,6 @@ The program has built-in multipass encryption, supporting up to 10 layers of enc
 >> [Multithreading Linear Transformations](#multithreading-linear-transformations)  
 >> [Combined Multithreading](#combined-multithreading)  
 >> [Result of Experiments](#result-of-experiments)  
->
-> [Usage](#usage)  
->> [Execution Flags](#execution-flags)  
->> [Instruction Flags](#instruction-flags)  
->> [Example: Simple](#example-simple)  
->> [Example: Intermediate](#example-intermediate)  
->> [Example: Multipass Encryption](#example-multipass-encryption)  
 >
 > [Endnotes](#endnotes)  
 > 
@@ -72,6 +72,235 @@ The file can either be split into chunks of the same dimension, or chunks of pse
 
 Encrypting in chunks is less ideal because it means that reordered bytes stay relatively close to their original position, but it's a necessary compromise for efficiency. The issue can be mitigated to some extent by performing multiple passes of encryption using a mix of differing fixed-dimension passes and variable-dimension passes.  
 
+## Usage
+`fontblanc [FILE] -e [OPTIONS...]` for encryption.  
+`fontblanc [FILE] -d [OPTIONS...]` for decryption.  
+
+### Options
+The initial command to execute the program will contain the input file, global options, and, optionally, the first instruction. If the first instruction isn't contained in the execution statement, then the program will automatically start in interactive instruction input mode.  
+| Flag | Description |
+|:----:| :---------- |
+| h    | Print general help. |
+| e    | Run in encrypt mode. |
+| d    | Run in decrypt mode. |
+| t    | Set max number of threads to use. Expects argument. If not invoked, defaults to single-threaded. For efficient performance, set to the number of cores on the machine's CPU. For maximum performance on hyperthreaded CPU's, set to number of cores multiplied by number of threads per core. |
+| o    | Set output filename (uses input filepath). Expects argument. If not invoked, defaults to input filename. Adds prefix (decryption) or extension (encryption) to output filename to prevent overwriting the intput file. |
+| m    | Run in interactive instruction input mode (multilevel encryption/decryption). |
+| v    | Verbose output level I. Prints instructions as they are added. |
+| V    | Verbose output level II. Prints debugging information. |
+| k    | Set encrypt key for first instruction. Expects argument. |
+| D    | Set permutation matrix dimension for first instruction. Expects argument. Argument of 0 denotes variable-dimension encryption. If not invoked, defaults to variable-dimension encryption. |
+| s    | Skip data integrity checks for fist instruction. Not recommended. |
+
+### Interactive Instruction Input Mode
+Interactive instruction input mode is a user input loop which allows the user to define one or more encryption/decryption instructions which will be applied in sequence. To successfully decrypt a multipass encrypted file, the user must input the exact same instructions in the same order as used for encryption.  
+
+The user can manually enter the instruction input loop by invoking the `-m` flag on the command line. The program will automatically enter the instruction input loop if no initial instruction is defined in the program execution statement.   
+
+The following flags are used to define a single encryption/decryption rule in the interactive instruction input loop.
+| Flag | Description |
+|:----:| :---------- |
+| h    | Print instruction help. |
+| k    | Set encrypt key for current instruction. Expects argument. |
+| D    | Set permutation matrix dimension for current instruction. Expects argument. Argument of 0 denotes variable-dimension encryption. If not invoked, defaults to variable-dimension encryption. |
+| s    | Skip data integrity checks for current instruction. Not recommended. |
+| r    | Delete the last instruction. |
+| p    | Print single instruction at specified position. Expects argument. |
+| P    | Print all instructions. |
+| Enter | Execute instructions. |  
+
+A generic instructions is written in the form of:  
+`-k [SOME KEY] -D [SOME DIMENSION]`  
+Omitting the `k` flag prompts the user to type the encryption key into the terminal with keyboard echoing disabled.  
+Press `Enter` to run after all instructions have been input.  
+
+### Example: Simple
+The following command runs a single pass of encryption over the file `Constitution.pdf` using the key`fookeybar`. It encrypts using variable-dimension matrices since the `D` flag was not invoked. Verbose output level I is enabled so instruction details are printed. It outputs a file named `Constitution.pdf.fbz`.  
+
+    ~$ ./fontblanc Constitution.pdf -e -k fookeybar -v
+
+    File name: Constitution.pdf
+    File size: 4488706 bytes
+    Mode: encrypt
+    Threads: 1
+
+    | Instruction #1 |
+    Key: fookeybar
+    Matrix dimension: variable
+    Data integrity checks: on
+
+    Encrypting...
+    Executing instruction 1...
+    Elapsed time (s): 0.816374
+    Done.  
+
+The following command decrypts the file generated by the previous encryption command. Verbose output is disabled this time so instruction details are not printed. It outputs a file named `d_Constitution.pdf`.  
+
+    ~$ ./fontblanc Constitution.pdf.fbz -d -k fookeybar
+
+    File name: Constitution.pdf.fbz
+    File size: 4488706 bytes
+    Mode: decrypt
+    Threads: 1
+
+    Instruction #1 added
+
+    Decrypting...
+    Elapsed time (s): 0.801153
+    Done.  
+    
+### Example: Intermediate
+The following command runs a single pass of encryption over the file `Constitution.pdf` using the key`fookeybar`. The output filename is set to `Constitution_encrypted` and it runs using a maximum of 4 threads. It encrypts using variable-dimension permutation matrices since the `D` flag was not invoked. Verbose output leve I is enabled. It outputs a file named `Constitution_encrypted.fbz`. 
+
+    ~$ ./fontblanc Constitution.pdf -e -o Constitution_encrypted -t 4 -k fookeybar -v
+    File name: Constitution.pdf
+    File size: 4488706 bytes
+    Mode: encrypt
+    Threads: 4
+
+    | Instruction #1 |
+    Key: fookeybar
+    Matrix dimension: variable
+    Data integrity checks: on
+
+    Encrypting...
+    Executing instruction 1...
+    Elapsed time (s): 0.307854
+    Done.  
+    
+The following command decrypts the file generated by the previous encryption command, but using 8 threads instead of 4. Verbose output level I is enabled. It outputs a file named `d_Constitution.pdf`.
+
+    ~$ ./fontblanc Constitution_encrypted.fbz -d -o Constitution.pdf -t 8 -k fookeybar -v
+    File name: Constitution_encrypted.fbz
+    File size: 4488706 bytes
+    Mode: decrypt
+    Threads: 8
+
+    | Instruction #1 |
+    Key: fookeybar
+    Matrix dimension: variable
+    Data integrity checks: on
+
+    Decrypting...
+    Executing instruction 1...
+    Elapsed time (s): 0.293071
+    Done.  
+    
+### Example: Multipass Encryption
+The following command instructs the program to enter the instruction input loop for multipass encryption via the `m` flag. It runs using a maximum of 4 threads.  
+The first instruction is defined in the program execution arguments and states to perform variable-dimension encryption using the key `fookeybar`.  
+The second instruction is defined in the instruction input loop and states to perform variable-dimension encryption using the key `barkeybaz`.  
+The third instruction is defined in the instruction input loop and states to perform fixed-dimension encryption using a permutation matrix size of 4096 using the key `bazkeyqux`.   
+Verbose output is disabled so instructions are not printed until the user explicitly requests it by invoking the `P` flag in the instruction input loop.  
+It outputs a file named `Constitution.pdf.fbz`.  
+
+    ~$ ./fontblanc Constitution.pdf -e -t 4 -k fookeybar -m
+    File name: Constitution.pdf
+    File size: 4488706 bytes
+    Mode: encrypt
+    Threads: 4
+
+    Instruction #1 added
+
+    Define instructions using the following flags:
+       -k	encryption key (omit flag to enter with terminal echoing disabled)
+       -D	permutation matrix dimension (defaults to variable-dimension if not invoked or set to 0)
+       -s	skip data integrity checks. Not recommended
+       -r	delete last instruction
+       -p	print single instruction at specified position. Expects integer argument
+       -P	print all instuctions
+       -h	print instruction input loop help
+       Enter	execute instructions
+    
+    Example: "-k fookeybar -D 0"
+
+    Enter an instruction:
+    ~$ -k barkeybaz
+    Instruction #2 added
+    Enter an instruction:
+    ~$ -k bazkeyqux -D 4096
+    Instruction #3 added
+    Enter an instruction:
+    -P                           // print all instructions
+    | Instruction #1 |
+    Key: fookeybar
+    Matrix dimension: variable
+    Data integrity checks: on
+    
+    | Instruction #2 |
+    Key: barkeybaz
+    Matrix dimension: variable
+    Data integrity checks: on
+    
+    | Instruction #3 |
+    Key: bazkeyqux
+    Matrix dimension: 4096
+    Data integrity checks: on
+    
+    Enter an instruction:
+    ~$                           // pressed Enter
+
+    Encrypting...
+    Executing instruction 1...
+    Executing instruction 2...
+    Executing instruction 3...
+    Elapsed time (s): 0.697083
+    Done.  
+    
+The following command decrypts the file generated by the previous encryption command. Notice that in this example the user only defines the dimension for each instruction, so the user can type their encryption keys with keyboard echoing disabled (keystrokes are shown in the transcript for purpose of readability, but text enclosed in angle brackets would be masked in a terminal). Verbose output level I is enabled. It outputs a file named `d_Constitution.pdf`.
+
+    ~$ ./fontblanc Constitution.pdf.fbz -d -t 4 -D 0 -m -v
+    File name: Constitution.pdf.fbz
+    File size: 4488706 bytes
+    Mode: decrypt
+    Threads: 4
+    ~$ Enter key: <fookeybar>    // masked input
+
+    | Instruction #1 |
+    Key: fookeybar
+    Matrix dimension: variable
+    Data integrity checks: on
+
+    Define instructions using the following flags:
+       -k	encryption key (omit flag to enter with terminal echoing disabled)
+       -D	permutation matrix dimension (defaults to variable-dimension if not invoked or set to 0)
+       -s	skip data integrity checks. Not recommended
+       -r	delete last instruction
+       -p	print single instruction at specified position. Expects integer argument
+       -P	print all instuctions
+       -h	print instruction input loop help
+       Enter	execute instructions
+    
+    Example: "-k fookeybar -D 0"
+    
+    Enter an instruction:
+    ~$ -D 0
+    ~$ Enter key: <barkeybaz>    // masked input
+
+    | Instruction #2 |
+    Key: barkeybaz
+    Matrix dimension: variable
+    Data integrity checks: on
+
+    Enter an instruction:
+    ~$ -D 4096
+    ~$ Enter key: <bazkeyqux>    // masked input
+
+    | Instruction #3 |
+    Key: bazkeyqux
+    Matrix dimension: 4096
+    Data integrity checks: on
+
+    Enter an instruction:
+    ~$                           // presed Enter
+    
+    Decrypting...
+    Executing instruction 1...
+    Executing instruction 2...
+    Executing instruction 3...
+    Elapsed time (s): 0.670722
+    Done.  
+    
 ## Performance Optimization  
 This section of the documentation is a detailed report of how I optimized the program via multithreading.
 
@@ -140,7 +369,7 @@ For fixed-dimension encryption, since matrix generation makes up 35% of the runt
 
 Plot 1 shows how both schemes perform compared to a single-threaded control run with the same input.  
 
-<img src="https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Misc/GenPmat_Fixed.png" Alt="Elapsed Time vs Number Threads for Fixed-Dimension Encryption" width="600"></img>  
+<img src="https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Misc/GenPmat_Fixed.png" Alt="Elapsed Time vs Number Threads for Fixed-Dimension Encryption" width="700"></img>  
 
 **Plot 1:** *Performance comparison of permut-pthread and permut-pthread-join multithreading schemes for fixed-dimension encryption.*  
 
@@ -150,7 +379,7 @@ For variable-dimension encryption, since matrix generation makes up 87% of the r
 
 Plot 2 shows how both schemes perform compared to a single-threaded control run with the same input.  
 
-<img src="https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Misc/GenPmat_Variable.png" Alt="Elapsed Time vs Number Threads for Variable-Dimension Encryption" width="600"></img>  
+<img src="https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Misc/GenPmat_Variable.png" Alt="Elapsed Time vs Number Threads for Variable-Dimension Encryption" width="700"></img>  
 
 **Plot 2:** *Performance comparison of permut-pthread and permut-pthread-join for variable-dimension encryption.*  
 
@@ -167,7 +396,7 @@ For fixed-dimension, since linear transformations make up 39% of the runtime, by
 
 Plot 3 shows how the two schemes perform compared to a single-threaded control run with the same input.  
 
-<img src="https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Misc/LinTrans_Fixed.png" Alt="Elapsed Time vs Number Threads for Fixed-Dimension Encryption" width="600"></img>  
+<img src="https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Misc/LinTrans_Fixed.png" Alt="Elapsed Time vs Number Threads for Fixed-Dimension Encryption" width="700"></img>  
 
 **Plot 3:** *Performance comparison of pthread and pthread-chunk for fixed-dimension encryption.*  
 
@@ -177,7 +406,7 @@ For variable-dimension, since linear transformations make up 7.5% of the runtime
 
 Plot 4 shows how the two schemes perform compared to a single-threaded control run with the same input.  
 
-<img src="https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Misc/LinTrans_Variable.png" Alt="Elapsed Time vs Number Threads for Variable-Dimension Encryption" width="600"></img>  
+<img src="https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Misc/LinTrans_Variable.png" Alt="Elapsed Time vs Number Threads for Variable-Dimension Encryption" width="700"></img>  
 
 **Plot 4:** *Performance comparison of pthread and pthread-chunk for variable-dimension encryption.*  
 
@@ -192,7 +421,7 @@ For fixed-dimension, taking into account that maxtrix generation (35% runtime) i
 
 Plot 5 shows how the two schemes perform independently and combined compared to a single-threaded control run with the same input. Displayed is the elapsed time vs number of threads for 3 passes of fixed-dimension encryption.  
 
-<img src="https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Misc/Combined_Fixed.png" Alt="Elapsed Time vs Number Threads for Variable-Dimension Encryption" width="600"></img>  
+<img src="https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Misc/Combined_Fixed.png" Alt="Elapsed Time vs Number Threads for Variable-Dimension Encryption" width="700"></img>  
 
 **Plot 5:** *Performance comparison of permut-thread, pthread-chunk, and permut-pthread-chunk for fixed-dimension encryption.*  
 
@@ -202,7 +431,7 @@ For variable-dimension, taking into account that matrix generation and linear tr
 
 Plot 6 shows how the two schemes perform independently and combined compared to a single-threaded control run with the same input.  
 
-<img src="https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Misc/Combined_Variable.png" Alt="Elapsed Time vs Number Threads for Variable-Dimension Encryption" width="600"></img>  
+<img src="https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Misc/Combined_Variable.png" Alt="Elapsed Time vs Number Threads for Variable-Dimension Encryption" width="700"></img>  
 
 **Plot 6:** *Performance comparison of permut-pthread, pthread-chunk, and permut-pthread-chunk for variable-dimension encryption.*  
 
@@ -226,236 +455,6 @@ For example, it could've been caused by an incorrect measurement of the amount o
 #### Conclusion  
 The least that can be concluded from these experiments is that multithreading both matrix generation and linear transformations provides a speedup of at least 2 to the program. The current version of Font_Blanc_C implements the permut-pthread-chunk multithreading scheme which provide a speedup of approximately 2 and 2.5 for fixed-dimension and variable-dimension encryption, respectively.  
 
-## Usage
-Run with `fontblanc <input filepath> <options ...>`.  
-
-### Execution Flags
-The initial command to run the program will contain the file to operate on, global flags, and, optionally, the first instruction. If the first instruction isn't contained in the initial command's arguments, then the program will automatically start in interactive instruction input mode.  
-| Flag | Description |
-|:----:| :---------- |
-| h    | Print general help. |
-| e    | Run in encrypt mode. |
-| d    | Run in decrypt mode. |
-| t    | Set max number of threads to use. Expects argument. If not invoked, defaults to single-threaded. For efficient performance, set to the number of cores on the machine's CPU. For maximum performance on hyperthreaded CPU's, set to number of cores multiplied by number of threads per core. |
-| o    | Set output filename (uses input filepath). Expects argument. If not invoked, defaults to input filename. Adds prefix (decryption) or extension (encryption) to output filename to prevent overwriting the intput file. |
-| m    | Run in interactive instruction input mode (multilevel encryption/decryption). |
-| v    | Verbose output level I. Prints instructions as they are added. |
-| V    | Verbose output level II. Prints debugging information. |
-| k    | Set encrypt key for first instruction. Expects argument. |
-| D    | Set permutation matrix dimension for first instruction. Expects argument. Argument of 0 denotes variable-dimension encryption. If not invoked, defaults to variable-dimension encryption. |
-| s    | Skip data integrity checks for fist instruction. Not recommended. |
-
-### Instruction Flags
-Instruction flags are options used to define a single encryption/decryption rule in the interactive instruction input loop.
-| Flag | Description |
-|:----:| :---------- |
-| h    | Print instruction help. |
-| k    | Set encrypt key for current instruction. Expects argument. |
-| D    | Set permutation matrix dimension for current instruction. Expects argument. Argument of 0 denotes variable-dimension encryption. If not invoked, defaults to variable-dimension encryption. |
-| s    | Skip data integrity checks for current instruction. Not recommended. |
-| r    | Delete the last instruction. |
-| p    | Print single instruction at specified position. Expects argument. |
-| P    | Print all instructions. |  
-
-A generic instructions is written in the form of:  
-`-k <some key> -D <some dimension>`  
-Omitting the `k` flag prompts the user to type the encryption key into the terminal with keyboard echoing disabled.  
-Press `Enter` to run after all instructions have been input.  
-
-### Example: Simple
-The following command runs a single pass of encryption over the file `Constitution.pdf` using the key`fookeybar`. It encrypts using variable-dimension permutation matrices since the `D` flag was not invoked. It outputs a file named `Constitution.pdf.fbz`.  
-
-    ~$ ./fontblanc Constitution.pdf -e -k fookeybar
-
-    File name: Constitution.pdf
-    File size: 4488706 bytes
-    Mode: encrypt
-    Threads: 1
-
-    | Instruction #1 |
-    Key: fookeybar
-    Matrix dimension: variable
-    Data integrity checks: on
-
-    Encrypting...
-    Executing instruction 1...
-    Elapsed time (s): 0.816374
-    Done.  
-
-The following command decrypts the file generated by the previous encryption command. It outputs a file named `d_Constitution.pdf`.  
-
-    ~$ ./fontblanc Constitution.pdf.fbz -d -k fookeybar
-
-    File name: Constitution.pdf.fbz
-    File size: 4488706 bytes
-    Mode: decrypt
-    Threads: 1
-
-    | Instruction #1 |
-    Key: fookeybar
-    Matrix dimension: variable
-    Data integrity checks: on
-
-    Decrypting...
-    Elapsed time (s): 0.801153
-    Done.  
-### Example: Intermediate
-The following command runs a single pass of encryption over the file `Constitution.pdf` using the key`fookeybar`. The output filename is set to `Constitution_encrypted` and it runs using a maximum of 4 threads. It encrypts using variable-dimension permutation matrices since the `D` flag was not invoked. It outputs a file named `Constitution_encrypted.fbz`. 
-
-    ~$ ./fontblanc Constitution.pdf -e -o Constitution_encrypted -t 4 -k fookeybar
-    File name: Constitution.pdf
-    File size: 4488706 bytes
-    Mode: encrypt
-    Threads: 4
-
-    | Instruction #1 |
-    Key: fookeybar
-    Matrix dimension: variable
-    Data integrity checks: on
-
-    Encrypting...
-    Executing instruction 1...
-    Elapsed time (s): 0.307854
-    Done.  
-    
-The following command decrypts the file generated by the previous encryption command, but using 8 threads instead of 4. It outputs a file named `d_Constitution.pdf`.
-
-    ~$ ./fontblanc Constitution_encrypted.fbz -d -o Constitution.pdf -t 8 -k fookeybar
-    File name: Constitution_encrypted.fbz
-    File size: 4488706 bytes
-    Mode: decrypt
-    Threads: 8
-
-    | Instruction #1 |
-    Key: fookeybar
-    Matrix dimension: variable
-    Data integrity checks: on
-
-    Decrypting...
-    Executing instruction 1...
-    Elapsed time (s): 0.293071
-    Done.  
-    
-### Example: Multipass Encryption
-The following command instructs the program to enter the instruction input loop for multipass encryption via the `m` flag. It runs using a maximum of 4 threads.  
-The first instruction is defined in the program execution arguments and states to perform variable-dimension encryption using the key `fookeybar`.  
-The second instruction is defined in the instruction input loop and states to perform variable-dimension encryption using the key `barkeybaz`.  
-The third instruction is defined in the instruction input loop and states to perform fixed-dimension encryption using a permutation matrix size of 4096 using the key `bazkeyqux`.   
-It outputs a file named `Constitution.pdf.fbz`.  
-
-    ~$ ./fontblanc Constitution.pdf -e -t 4 -k fookeybar -m
-    File name: Constitution.pdf
-    File size: 4488706 bytes
-    Mode: encrypt
-    Threads: 4
-
-    | Instruction #1 |
-    Key: fookeybar
-    Matrix dimension: variable
-    Data integrity checks: on
-
-    Define instructions using the following flags:
-    -k	encryption key (omit flag to enter with terminal echoing disabled)
-    -D	permutation matrix dimension (defaults to variable-dimension if not invoked or set to 0)
-    -s	skip data integrity checks. Not recommended
-    Enter	execute instructions
-    
-    Example: "-k fookeybar -D 0"
-
-    Enter an instruction:
-    ~$ -k barkeybaz
-
-    | Instruction #2 |
-    Key: barkeybaz
-    Matrix dimension: variable
-    Data integrity checks: on
-
-    Enter an instruction:
-    ~$ -k bazkeyqux -D 4096
-
-    | Instruction #3 |
-    Key: bazkeyqux
-    Matrix dimension: 4096
-    Data integrity checks: on
-
-    Enter an instruction:
-    -P                           // print all instructions
-    
-     | Instruction #1 |
-    Key: fookeybar
-    Matrix dimension: variable
-    Data integrity checks: on
-    
-    | Instruction #2 |
-    Key: barkeybaz
-    Matrix dimension: variable
-    Data integrity checks: on
-    
-    | Instruction #3 |
-    Key: bazkeyqux
-    Matrix dimension: 4096
-    Data integrity checks: on
-    
-    Enter an instruction:
-    ~$                           // typed Enter
-
-    Encrypting...
-    Executing instruction 1...
-    Executing instruction 2...
-    Executing instruction 3...
-    Elapsed time (s): 0.697083
-    Done.  
-    
-The following command decrypts the file generated by the previous encryption command. Notice that in this example the user only defines the dimension for each instruction, so the user can type their encryption keys with keyboard echoing disabled (keystrokes are shown in the transcript for purpose of readability, but text enclosed in angle brackets would be masked in a terminal). It outputs a file named `d_Constitution.pdf`.
-
-    ~$ ./fontblanc Constitution.pdf.fbz -d -t 4 -D 0 -m
-    File name: Constitution.pdf.fbz
-    File size: 4488706 bytes
-    Mode: decrypt
-    Threads: 4
-    ~$ Enter key: <fookeybar>    // masked input
-
-    | Instruction #1 |
-    Key: fookeybar
-    Matrix dimension: variable
-    Data integrity checks: on
-
-    Define instructions using the following flags:
-    -k	encryption key (omit flag to enter with terminal echoing disabled)
-    -D	permutation matrix dimension (defaults to variable-dimension if not invoked or set to 0)
-    -s	skip data integrity checks. Not recommended
-    Enter	execute instructions
-    
-    Example: "-k fookeybar -D 0"
-    
-    Enter an instruction:
-    ~$ -D 0
-    ~$ Enter key: <barkeybaz>    // masked input
-
-    | Instruction #2 |
-    Key: barkeybaz
-    Matrix dimension: variable
-    Data integrity checks: on
-
-    Enter an instruction:
-    ~$ -D 4096
-    ~$ Enter key: <bazkeyqux>    // masked input
-
-    | Instruction #3 |
-    Key: bazkeyqux
-    Matrix dimension: 4096
-    Data integrity checks: on
-
-    Enter an instruction:
-    ~$                           // typed Enter
-    
-    Decrypting...
-    Executing instruction 1...
-    Executing instruction 2...
-    Executing instruction 3...
-    Elapsed time (s): 0.670722
-    Done.  
-    
 ## Endnotes
 <sup>1</sup>3Blue1Brown. Linear Transformations and Matrices | Chapter 3, Essence of Linear Algebra. YouTube, YouTube, 7 Aug. 2016, www.youtube.com/watch?v=kYB8IZa5AuE.  
 <sup>2</sup>Taboga, Marco. “Permutation Matrix.” StatLect, StatLect, www.statlect.com/matrix-algebra/permutation-matrix.  
