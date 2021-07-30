@@ -459,4 +459,6 @@ The least that can be concluded from these experiments is that multithreading bo
 <sup>1</sup>3Blue1Brown. Linear Transformations and Matrices | Chapter 3, Essence of Linear Algebra. YouTube, YouTube, 7 Aug. 2016, www.youtube.com/watch?v=kYB8IZa5AuE.  
 <sup>2</sup>Taboga, Marco. “Permutation Matrix.” StatLect, StatLect, www.statlect.com/matrix-algebra/permutation-matrix.  
 <sup>3</sup>Cherlin, Gregory. “Lecture 26 Orthogonal Matrices.” Sites.math.rutgers.edu, Rutgers University, https://sites.math.rutgers.edu/~cherlin/Courses/250/Lectures/250L26.html.  
-<sup>4</sup>“Computational Complexity of Mathematical Operations.” Wikipedia, Wikimedia Foundation, 5 July 2021, https://en.wikipedia.org/wiki/Computational_complexity_of_mathematical_operations#Matrix_algebra. 
+<sup>4</sup>“Computational Complexity of Mathematical Operations.” Wikipedia, Wikimedia Foundation, 5 July 2021, https://en.wikipedia.org/wiki/Computational_complexity_of_mathematical_operations#Matrix_algebra.  
+
+[Return to table of contents](#documentation-table-of-contents)  
