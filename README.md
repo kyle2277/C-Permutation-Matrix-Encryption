@@ -4,7 +4,7 @@
 
 ___
 # C Permutation Matrix Encryption  
-*Developed under the name Font_Blanc_C*
+*This program was developed under the name Font_Blanc_C*
 ## Overview
 Font_Blanc_C is an unconventional encryption algorithm which uses matrix multiplication to permute, or reorder, data stored in a byte-array.  
 
