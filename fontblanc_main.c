@@ -290,7 +290,7 @@ int instruction_input_loop(instruction **instructions, int num_instructions) {
       } else if(com->print_single >= 0) {
         int index = com->print_single - 1;
         if(index < 0 || index >= num_instructions) {
-          printf("No instruction numbered %d exists\n\n", com->print_single);
+          printf("No instruction #%d exists\n\n", com->print_single);
         } else {
           print_instruction_at(instructions, index);
         }
@@ -310,6 +310,8 @@ int instruction_input_loop(instruction **instructions, int num_instructions) {
           num_instructions += 1;
           if(verbose_lvl_1) {
             print_last_instruction(instructions, num_instructions);
+          } else {
+            printf("Instruction #%d added\n", num_instructions);
           }
         }
       } else if(num_instructions >= 10) {
@@ -393,6 +395,8 @@ int main(int argc, char **argv) {
   }
   if(verbose_lvl_1) {
     print_instructions(instructions, num_instructions);
+  } else {
+    printf("Instruction #1 added\n\n");
   }
   // If multilevel encryption flag set, enter instruction input loop
   if(init->multilevel) {
