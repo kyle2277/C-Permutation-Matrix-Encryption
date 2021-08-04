@@ -1,5 +1,5 @@
 <p align="center">
-<img src="https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Misc/CPME_logo.png" Alt="CPME - C Permutation Matrix Encryption logo" width="450"></img>
+<img src="https://github.com/kyle2277/C-Permutation-Matrix-Encryption/blob/dev-permut-pthread-and-chunk/Misc/CPME_logo.png" Alt="CPME - C Permutation Matrix Encryption logo" width="450"></img>
 </p>  
 
 ___
@@ -312,15 +312,15 @@ To measure performance, I've defined 2 major sections of the program whose elaps
 
 I've chosen these two sections because combined they make up over 50% of the runtime of the program and they're both parallelizable.  
 #### Data Collection
-All data was collected using [this](https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Misc/run_threads.sh) Bash script. The script repeatedly runs the program with the same input using different numbers of threads. It outputs the elapsed time of each run to a file in CSV format. This data was averaged and graphed to get the results reported here.  
+All data was collected using [this](https://github.com/kyle2277/C-Permutation-Matrix-Encryption/blob/dev-permut-pthread-and-chunk/Misc/run_threads.sh) Bash script. The script repeatedly runs the program with the same input using different numbers of threads. It outputs the elapsed time of each run to a file in CSV format. This data was averaged and graphed to get the results reported here.  
 #### Input File
-I used [this](https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Misc/Constitution.pdf) PDF of the U.S. Constitution named `Constitution.pdf` as the input. The test file, as it will be referred to, is 4488706 bytes (4.3 MiB) long. 
+I used [this](https://github.com/kyle2277/C-Permutation-Matrix-Encryption/blob/dev-permut-pthread-and-chunk/Misc/Constitution.pdf) PDF of the U.S. Constitution named `Constitution.pdf` as the input. The test file, as it will be referred to, is 4488706 bytes (4.3 MiB) long. 
 #### Testing Hardware
 Tests were performed on a 2-core, 4-thread (hyperthreaded), Intel(R) Core(TM) i7-7500U CPU @ 2.7GHz. 
 #### Experimental Groups
 For each multithreading scheme tested, I created separate experimental groups for variable-dimension and fixed-dimension runs of the program. Runs consisted of 3 layers of encryption, all either variable-dimension or fixed-dimension. The data presented for each experimental group is the average result of 5 runs. All tests were done in the file encryption mode because decryption has the same performance.  
-Variable-dimension tests used [this](https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Misc/test_variable) file as input for the instruction loop.  
-Fixed-dimension tests used [this](https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Misc/test_fixed) file as input for the instruction loop.  
+Variable-dimension tests used [this](https://github.com/kyle2277/C-Permutation-Matrix-Encryption/blob/dev-permut-pthread-and-chunk/Misc/test_variable) file as input for the instruction loop.  
+Fixed-dimension tests used [this](https://github.com/kyle2277/C-Permutation-Matrix-Encryption/blob/dev-permut-pthread-and-chunk/Misc/test_fixed) file as input for the instruction loop.  
 #### Speedup Calculations
 Program speedup upper bounds were calculated using Amdahl's Law, defined as follows:
 
@@ -379,7 +379,7 @@ For variable-dimension encryption, since matrix generation makes up 87% of the r
 
 Plot 2 shows how both schemes perform compared to a single-threaded control run with the same input.  
 
-<img src="https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Misc/GenPmat_Variable.png" Alt="Elapsed Time vs Number Threads for Variable-Dimension Encryption" width="700"></img>  
+<img src="https://github.com/kyle2277/C-Permutation-Matrix-Encryption/blob/dev-permut-pthread-and-chunk/Misc/GenPmat_Variable.png" Alt="Elapsed Time vs Number Threads for Variable-Dimension Encryption" width="700"></img>  
 
 **Plot 2:** *Performance comparison of permut-pthread and permut-pthread-join for variable-dimension encryption.*  
 
@@ -396,7 +396,7 @@ For fixed-dimension, since linear transformations make up 39% of the runtime, by
 
 Plot 3 shows how the two schemes perform compared to a single-threaded control run with the same input.  
 
-<img src="https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Misc/LinTrans_Fixed.png" Alt="Elapsed Time vs Number Threads for Fixed-Dimension Encryption" width="700"></img>  
+<img src="https://github.com/kyle2277/C-Permutation-Matrix-Encryption/blob/dev-permut-pthread-and-chunk/Misc/LinTrans_Fixed.png" Alt="Elapsed Time vs Number Threads for Fixed-Dimension Encryption" width="700"></img>  
 
 **Plot 3:** *Performance comparison of pthread and pthread-chunk for fixed-dimension encryption.*  
 
@@ -406,7 +406,7 @@ For variable-dimension, since linear transformations make up 7.5% of the runtime
 
 Plot 4 shows how the two schemes perform compared to a single-threaded control run with the same input.  
 
-<img src="https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Misc/LinTrans_Variable.png" Alt="Elapsed Time vs Number Threads for Variable-Dimension Encryption" width="700"></img>  
+<img src="https://github.com/kyle2277/C-Permutation-Matrix-Encryption/blob/dev-permut-pthread-and-chunk/Misc/LinTrans_Variable.png" Alt="Elapsed Time vs Number Threads for Variable-Dimension Encryption" width="700"></img>  
 
 **Plot 4:** *Performance comparison of pthread and pthread-chunk for variable-dimension encryption.*  
 
@@ -421,7 +421,7 @@ For fixed-dimension, taking into account that maxtrix generation (35% runtime) i
 
 Plot 5 shows how the two schemes perform independently and combined compared to a single-threaded control run with the same input. Displayed is the elapsed time vs number of threads for 3 passes of fixed-dimension encryption.  
 
-<img src="https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Misc/Combined_Fixed.png" Alt="Elapsed Time vs Number Threads for Variable-Dimension Encryption" width="700"></img>  
+<img src="https://github.com/kyle2277/C-Permutation-Matrix-Encryption/blob/dev-permut-pthread-and-chunk/Misc/Combined_Fixed.png" Alt="Elapsed Time vs Number Threads for Variable-Dimension Encryption" width="700"></img>  
 
 **Plot 5:** *Performance comparison of permut-thread, pthread-chunk, and permut-pthread-chunk for fixed-dimension encryption.*  
 
@@ -431,7 +431,7 @@ For variable-dimension, taking into account that matrix generation and linear tr
 
 Plot 6 shows how the two schemes perform independently and combined compared to a single-threaded control run with the same input.  
 
-<img src="https://github.com/kyle2277/Font_Blanc_C/blob/dev-permut-pthread-and-chunk/Misc/Combined_Variable.png" Alt="Elapsed Time vs Number Threads for Variable-Dimension Encryption" width="700"></img>  
+<img src="https://github.com/kyle2277/C-Permutation-Matrix-Encryption/blob/dev-permut-pthread-and-chunk/Misc/Combined_Variable.png" Alt="Elapsed Time vs Number Threads for Variable-Dimension Encryption" width="700"></img>  
 
 **Plot 6:** *Performance comparison of permut-pthread, pthread-chunk, and permut-pthread-chunk for variable-dimension encryption.*  
 
