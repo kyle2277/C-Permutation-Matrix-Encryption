@@ -1,13 +1,13 @@
 /*
  * util.h
  * Copyrite (c) Kyle Won, 2021
- * FontBlanc_C utilies header file.
+ * CPME utilies header file.
  */
 
 #ifndef FONT_BLANC_C_UTIL_H
 #define FONT_BLANC_C_UTIL_H
 
-#define LOG_OUTPUT "fontblanc_log.txt"
+#define LOG_OUTPUT "cpme_log.txt"
 #define BUFFER 256
 typedef enum { false, true } boolean;
 // Max number of threads to use

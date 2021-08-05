@@ -1,13 +1,13 @@
 /*
- * fontblanc_main.c
+ * cpme.c
  * Copyrite (c) Kyle Won, 2021
- * Command line user interaction controls for FontBlanc_C. Contains main function.
+ * Command line user interaction controls for CPME. Contains main function.
  */
 // Define POSIX source for clock
 #define _XOPEN_SOURCE 700
 #include <stdio.h>
 #include <stdlib.h>
-#include "fontblanc.h"
+#include "cpme.h"
 #include "util.h"
 #include <math.h>
 #include <unistd.h>
@@ -21,7 +21,7 @@
 #define INIT_OPTIONS "edD:k:o:xmst:hvV"
 #define INSTRUCTION_OPTIONS ":k:D:shrp:P"
 
-// Writes elapsed time to a file called fbc_elapsed_time.txt when EXPORT_TIME defined
+// Writes elapsed time to a file called cpme_elapsed_time.txt when EXPORT_TIME defined
 // Overwrites file on every execution
 // Used for performance testing
 //#define EXPORT_TIME
@@ -30,9 +30,6 @@
  * Prints ASCII art splash.
  */
 void splash() {
-  if(!verbose_lvl_1 && !verbose_lvl_2) {
-    return;
-  }
   FILE *splash;
   if((splash = fopen("./splash.txt", "r"))) {
     fseek(splash, 0, SEEK_END);
@@ -42,7 +39,7 @@ void splash() {
     fread(splash_text, sizeof(char), (size_t)file_len, splash);
     printf("%s\n\n", splash_text);
   } else {
-    printf("%s\n%s\n\n", "Welcome to Font Blanc C, Matrix File Encryption", "By Kyle Won");
+    printf("%s\n%s\n\n", "Welcome to CPME, C Permutation Matrix Encryption", "By Kyle Won");
   }
 }
 
@@ -50,10 +47,11 @@ void splash() {
  * Prints complete program help.
  */
 void main_help() {
+  splash();
   printf("CPME = C Permutation Matrix Encryption\n");
   printf("By Kyle Won\n\n");
-  printf("Usage: fontblanc [FILE] -e [OPTIONS...]\t\tencrypt mode\n");
-  printf("   or: fontblanc [FILE] -d [OPTIONS...]\t\tdecrypt mode\n");
+  printf("Usage: cpme [FILE] -e [OPTIONS...]\t\tencrypt mode\n");
+  printf("   or: cpme [FILE] -d [OPTIONS...]\t\tdecrypt mode\n");
   printf("\n");
   printf("Arguments:\n");
   printf("   -k\t\tSet encrypt key for first instruction. Expects argument\n");
@@ -367,7 +365,9 @@ int main(int argc, char **argv) {
     num_threads = 1;
   }
   //app welcome
-  splash();
+  if(!verbose_lvl_1 && !verbose_lvl_2) {
+    splash();
+  }
   char **processed = parse_f_path(absolute_path);
   char *file_name = processed[0];
   char *just_path = processed[1];
@@ -427,7 +427,7 @@ int main(int argc, char **argv) {
   free_instructions(instructions, num_instructions);
   printf("Elapsed time (s): %Lf\n", difference);
 #ifdef EXPORT_TIME
-  FILE *time_out = fopen("fbc_elapsed_time.txt", "w");
+  FILE *time_out = fopen("cpme_elapsed_time.txt", "w");
   char write[BUFFER];
   snprintf(write, BUFFER, "%Lf", difference);
   fwrite(write, sizeof(char), strlen(write), time_out);

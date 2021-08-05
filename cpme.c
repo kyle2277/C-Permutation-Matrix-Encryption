@@ -1,10 +1,10 @@
 /*
- * fontblanc.c
+ * cpme.c
  * Copyrite (c) Kyle Won, 2021
- * FontBlanc_C core.
+ * CPME core.
  */
 
-#include "fontblanc.h"
+#include "cpme.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -13,7 +13,7 @@
 #include <time.h>
 #include <semaphore.h>
 #include <pthread.h>
-#include "fontblanc.h"
+#include "cpme.h"
 #include "Dependencies/st_to_cc.h"
 #include "Dependencies/csparse.h"
 
@@ -98,7 +98,7 @@ typedef struct variable_transform_thread {
 cipher *create_cipher(char *file_name, char *file_path, long file_len, char *output_name) {
   cipher *c = malloc(sizeof(cipher));
   if(!c) {
-    fatal(LOG_OUTPUT, "Dynamic memory allocation error in create_cipher(), fontblanc.c"); exit(-1);
+    fatal(LOG_OUTPUT, "Dynamic memory allocation error in create_cipher(), cpme.c"); exit(-1);
   }
   c->log_path = LOG_OUTPUT;
   c->file_name = file_name;
@@ -113,7 +113,7 @@ cipher *create_cipher(char *file_name, char *file_path, long file_len, char *out
   // 9 variations of perumation matrices, mapped to base 10 digits 1-9
   c->permut_map = (struct PMAT **)calloc(11, sizeof(struct PMAT *));
   if(!c->permut_map) {
-    fatal(LOG_OUTPUT, "Dynamic memory allocation error in create_cipher(), fontblanc.c"); exit(-1);
+    fatal(LOG_OUTPUT, "Dynamic memory allocation error in create_cipher(), cpme.c"); exit(-1);
   }
   thread_sema = (sem_t *)malloc(sizeof(sem_t));
   sem_init(thread_sema, 0, num_threads);
@@ -180,7 +180,7 @@ void *variable_thread_func(void *args) {
   //create encrypt map of length required for file instead of looping
   //todo limits file size to max size of unsigned int in bytes, ~4GB
   if(!args) {
-    fatal(LOG_OUTPUT, "Null args reference in fixed_thread_func(), fontblanc.c."); exit(EXIT_FAILURE);
+    fatal(LOG_OUTPUT, "Null args reference in fixed_thread_func(), cpme.c."); exit(EXIT_FAILURE);
   }
   variable_transform_thread *vtt = (variable_transform_thread *)args;
   long bytes_remaining = vtt->length;
@@ -260,7 +260,7 @@ void variable_thread_scheduler(cipher *c, int coeff) {
       pthread_t thread;
       variable_transform_thread *vtt = (variable_transform_thread *)malloc(sizeof(variable_transform_thread));
       if(!vtt) {
-        fatal(LOG_OUTPUT, "Dynamic memory allocation error in fixed_thread_scheduler(), fontblanc.c.");
+        fatal(LOG_OUTPUT, "Dynamic memory allocation error in fixed_thread_scheduler(), cpme.c.");
         exit(EXIT_FAILURE);
       }
       vtt->map_itr_start = map_itr_start;
@@ -281,7 +281,7 @@ void variable_thread_scheduler(cipher *c, int coeff) {
   pthread_t thread;
   variable_transform_thread *vtt = (variable_transform_thread *)malloc(sizeof(variable_transform_thread));
   if(!vtt) {
-    fatal(LOG_OUTPUT, "Dynamic memory allocation error in fixed_thread_scheduler(), fontblanc.c.");
+    fatal(LOG_OUTPUT, "Dynamic memory allocation error in fixed_thread_scheduler(), cpme.c.");
     exit(EXIT_FAILURE);
   }
   vtt->map_itr_start = map_index % map_len;
@@ -307,7 +307,7 @@ void variable_thread_scheduler(cipher *c, int coeff) {
  */
 void *fixed_thread_func(void *args) {
   if(!args) {
-    fatal(LOG_OUTPUT, "Null args reference in fixed_thread_func(), fontblanc.c."); exit(EXIT_FAILURE);
+    fatal(LOG_OUTPUT, "Null args reference in fixed_thread_func(), cpme.c."); exit(EXIT_FAILURE);
   }
   fixed_transform_thread *ftt = (fixed_transform_thread *)args;
   long bytes_remaining = ftt->length;
@@ -354,7 +354,7 @@ void fixed_thread_scheduler(cipher *c, int coeff, int dimension) {
       pthread_t thread;
       fixed_transform_thread *ftt = (fixed_transform_thread *)malloc(sizeof(fixed_transform_thread));
       if(!ftt) {
-        fatal(LOG_OUTPUT, "Dynamic memory allocation error in fixed_thread_scheduler(), fontblanc.c.");
+        fatal(LOG_OUTPUT, "Dynamic memory allocation error in fixed_thread_scheduler(), cpme.c.");
         exit(EXIT_FAILURE);
       }
       ftt->dimension = dimension;
@@ -374,7 +374,7 @@ void fixed_thread_scheduler(cipher *c, int coeff, int dimension) {
   pthread_t thread;
   fixed_transform_thread *ftt = (fixed_transform_thread *)malloc(sizeof(fixed_transform_thread));
   if(!ftt) {
-    fatal(LOG_OUTPUT, "Dynamic memory allocation error in fixed_thread_scheduler(), fontblanc.c.");
+    fatal(LOG_OUTPUT, "Dynamic memory allocation error in fixed_thread_scheduler(), cpme.c.");
     exit(EXIT_FAILURE);
   }
   ftt->dimension = dimension;
@@ -400,7 +400,7 @@ void permut_cipher(cipher *c, int map_index, long ref) {
   unsigned char *data = c->file_bytes;
   struct PMAT *permutation_mat = c->permut_map[map_index];
   if(!permutation_mat) {
-    fatal(LOG_OUTPUT, "Null reference to permutation matrix in permut_cipher(), fontblanc.c.");
+    fatal(LOG_OUTPUT, "Null reference to permutation matrix in permut_cipher(), cpme.c.");
     exit(EXIT_FAILURE);
   }
   int dimension = permutation_mat->dimension;
@@ -474,7 +474,7 @@ int pull_node(node **head, int count, permut_thread *pt) {
  */
 void *permut_thread_func(void *args) {
   if(!args) {
-    fatal(LOG_OUTPUT, "Null args reference in thread_func(), fontblanc.c."); exit(EXIT_FAILURE);
+    fatal(LOG_OUTPUT, "Null args reference in thread_func(), cpme.c."); exit(EXIT_FAILURE);
   }
   permut_thread *pt = (permut_thread *)args;
   pt->trash = init_ll_trash(pt->dimension);
@@ -504,7 +504,7 @@ void gen_variable_permut_mats(cipher *c, int coeff) {
   // matrix of arbitrary size
   dim_array = (int *)calloc(11, sizeof(int));
   if(!dim_array) {
-    fatal(LOG_OUTPUT, "Dynamic memory allocation error in gen_variable_permut_mats(), fontblanc.c.");
+    fatal(LOG_OUTPUT, "Dynamic memory allocation error in gen_variable_permut_mats(), cpme.c.");
     exit(EXIT_FAILURE);
   }
   dim_array_size = 10;
@@ -548,7 +548,7 @@ void gen_fixed_permut_mats(cipher *c, int coeff, int dimension) {
   dim_array_size = last_dim > 0 ? 3 : 2;
   dim_array = (int *)calloc((size_t)dim_array_size, sizeof(int));
   if(!dim_array) {
-    fatal(LOG_OUTPUT, "Dynamic memory allocation error in gen_fixed_permut_mats(), fontblanc.c.");
+    fatal(LOG_OUTPUT, "Dynamic memory allocation error in gen_fixed_permut_mats(), cpme.c.");
     exit(EXIT_FAILURE);
   }
   dim_array[1] = dimension;
