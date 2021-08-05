@@ -22,7 +22,7 @@ The program has built-in multipass encryption, supporting up to 10 layers of enc
 >
 > [Usage](#usage)  
 >> [Options](#options)  
->> [Interacitve Instruction Input Mode](#interactive-instruction-input-mode)  
+>> [Interactive Instruction Input Mode](#interactive-instruction-input-mode)  
 >> [Example: Simple](#example-simple)  
 >> [Example: Intermediate](#example-intermediate)  
 >> [Example: Multipass Encryption](#example-multipass-encryption)  
