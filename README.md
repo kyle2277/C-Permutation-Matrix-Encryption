@@ -456,7 +456,7 @@ As shown by Table 3, most of the predicted speedups were fairly consistent with 
 
 For example, it could've been caused by an incorrect measurement of the amount of the program that is parallelizable in the [single threaded benchmark](#single-threaded-benchmark) test. This would've resulted in an incorrect upper bound calculated by Amdahl's Law. It could've also been caused by the fact that the hyperthreaded CPU used for testing doesn't truly have 4 cores. The factor of parallelizability of 4 that I used in my calculations may have been an overestimation of the actual capability of the CPU in some situations. A third explanation may be that the program's current algorithm for generating permutation matrices is inefficient, since the lacking speedup only occurred in tests where the generation of matrices made up the largest proportion of the program's runtime.  
 #### Conclusion  
-The least that can be concluded from these experiments is that multithreading both matrix generation and linear transformations provides a speedup of at least 2 to the program. The current version of CPME implements the permut-pthread-chunk multithreading scheme which provide a speedup of approximately 2 and 2.5 for fixed-dimension and variable-dimension encryption, respectively.  
+The least that can be concluded from these experiments is that multithreading both matrix generation and linear transformations provides a speedup of at least 2 to the program. The current version of CPME implements the permut-pthread-chunk multithreading scheme which provides a speedup of approximately 2 and 2.5 for fixed-dimension and variable-dimension encryption, respectively.  
 
 [Return to table of contents](#documentation-table-of-contents)  
 ## Endnotes
