@@ -92,7 +92,7 @@ The initial command to execute the program will contain the input file, global o
 | V    | Verbose output level II. Prints debugging information. |
 | k    | Set encrypt key for first instruction. Expects argument. |
 | D    | Set permutation matrix dimension for first instruction. Expects argument. Argument of 0 denotes variable-dimension encryption. If not invoked, defaults to variable-dimension encryption. |
-| s    | Skip data integrity checks for fist instruction. Not recommended. |
+| s    | Skip data integrity checks for first instruction. Not recommended. |
 
 ### Interactive Instruction Input Mode
 Interactive instruction input mode is a user input loop which allows the user to define one or more encryption/decryption instructions which will be applied in sequence. To successfully decrypt a multipass encrypted file, the user must input the exact same instructions in the same order as used for encryption.  
