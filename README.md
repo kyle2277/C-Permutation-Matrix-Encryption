@@ -111,7 +111,7 @@ The following flags are used to define a single encryption/decryption rule in th
 | P    | Print all instructions. |
 | Enter | Execute instructions. |  
 
-A generic instructions is written in the form of:  
+A generic instruction is written in the form of:  
 `-k [SOME KEY] -D [SOME DIMENSION]`  
 Omitting the `k` flag prompts the user to type the encryption key into the terminal with keyboard echoing disabled.  
 Press `Enter` to run after all instructions have been input.  
