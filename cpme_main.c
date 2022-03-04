@@ -1,6 +1,6 @@
 /*
  * cpme.c
- * Copyrite (c) Kyle Won, 2021
+ * Copyright (c) Kyle Won, 2021
  * Command line user interaction controls for CPME. Contains main function.
  */
 // Define POSIX source for clock
