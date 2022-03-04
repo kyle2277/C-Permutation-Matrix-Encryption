@@ -60,7 +60,7 @@ The CPME algorithm is predicated on the fact that the multiplication of a vector
     For some invertible matrix M, and some vectors a and b, it is true that
     Ma = b and M⁻¹b = a  
 
-Consider the byte array containing a file's data to be a vector of length n, where n is the number of bytes in the file. If we create an inveritble n-dimensional square matrix, M, and multiply it with the file vector, the resultant vector will be a transformed (encrypted) version of the data. By Theorem A, to reverse the transformation (decrypt the data) we have to calculate the inverse of M and then multiply it with the encrypted data vector. However, despite the fact that this is a functional encryption process, in practice it is too computationally expensive to 1) generate an arbitrary invertible matrix from an encryption key and 2) calculate its inverse.  
+Consider the byte array containing a file's data to be a vector of length n, where n is the number of bytes in the file. If we create an invertible n-dimensional square matrix, M, and multiply it with the file vector, the resultant vector will be a transformed (encrypted) version of the data. By Theorem A, to reverse the transformation (decrypt the data) we have to calculate the inverse of M and then multiply it with the encrypted data vector. However, despite the fact that this is a functional encryption process, in practice it is too computationally expensive to 1) generate an arbitrary invertible matrix from an encryption key and 2) calculate its inverse.  
 
 Is there a way to harness the simple encrypt and decryptability of a vector via linear transformation outlined in Theorem A without the use of expensive algorithms?  
 
