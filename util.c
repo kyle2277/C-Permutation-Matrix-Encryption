@@ -1,6 +1,6 @@
 /*
  * util.c
- * Copyrite (c) Kyle Won, 2021
+ * Copyright (c) Kyle Won, 2021
  * Miscellaneous general purpose helper functions for CPME main and core.
  */
 #include <stdlib.h>
