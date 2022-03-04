@@ -1,5 +1,5 @@
 # Makefile for C Permutation Matrix Encryption (CPME)
-# Copyrite (c) Kyle Won, 2021
+# Copyright (c) Kyle Won, 2021
 
 # Flags for CPME source code
 CFLAGS = -Wall -Wextra -Werror -Wpedantic -std=c11
