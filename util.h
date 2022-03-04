@@ -1,6 +1,6 @@
 /*
  * util.h
- * Copyrite (c) Kyle Won, 2021
+ * Copyright (c) Kyle Won, 2021
  * CPME utilies header file.
  */
 
